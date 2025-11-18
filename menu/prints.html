@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>3D Print Management - Prints</title>
-  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../styles.css" />
 </head>
 <body>
-  <div class="layout">
+  <div class="layout app-shell">
     <aside class="sidebar">
       <div class="logo">3D Print Management</div>
       <nav class="nav">
@@ -20,30 +20,35 @@
       </nav>
     </aside>
 
-    <main class="content">
-      <div class="header">
-        <div>
-          <p class="badge badge--info">Fila</p>
-          <h1>Prints</h1>
-          <p>Lista de jobs de impressão em andamento, concluídos e na fila.</p>
+    <main class="page-content">
+      <section class="page-section card">
+        <div class="section-header">
+          <span class="section-tag">Fila</span>
+          <h1 class="section-title">Prints</h1>
+          <p class="section-subtitle">
+            Lista de jobs de impressão em andamento, concluídos e na fila.
+          </p>
         </div>
-      </div>
 
-      <table class="table" aria-label="Lista de impressões">
-        <thead>
-          <tr>
-            <th>Thumb</th>
-            <th>Nome do job</th>
-            <th>Impressora</th>
-            <th>Material</th>
-            <th>Status</th>
-            <th>Tempo restante</th>
-          </tr>
-        </thead>
-        <tbody id="prints-table-body"></tbody>
-      </table>
+        <div class="prints-table-wrapper">
+          <table class="prints-table" aria-label="Lista de impressões">
+            <thead>
+              <tr>
+                <th>Thumb</th>
+                <th>Nome do job</th>
+                <th>Impressora</th>
+                <th>Material</th>
+                <th>Status</th>
+                <th>Tempo restante</th>
+              </tr>
+            </thead>
+            <tbody id="prints-table-body"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
+
   <script src="../app.js"></script>
 </body>
 </html>
