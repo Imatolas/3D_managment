@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Print Management - Printers</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">3D Print Management</div>
+      <nav class="nav">
+        <a href="/index.html">Overview</a>
+        <a href="/menu/timeline.html">Timeline</a>
+        <a href="/menu/prints.html">Prints</a>
+        <a class="active" href="/menu/printers.html">Printers</a>
+        <a href="/menu/materials.html">Materials</a>
+        <a href="/menu/statistics.html">Statistics</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="header">
+        <div>
+          <p class="badge info">Inventário</p>
+          <h1>Printers</h1>
+          <p style="color: var(--muted);">Estado das impressoras, tipos e jobs atuais.</p>
+        </div>
+      </div>
+
+      <div class="flex-row" data-printer-cards>
+        <article class="printer-card">
+          <header>
+            <h3>Bambu X1</h3>
+            <span class="badge info">Printing</span>
+          </header>
+          <p>Tipo: CoreXY</p>
+          <p>Job atual: Drone Arm</p>
+          <div class="meter"><span style="width: 62%"></span></div>
+          <div class="flex-row">
+            <button class="btn">View</button>
+            <button class="btn ghost">Open in Klipper</button>
+          </div>
+        </article>
+        <article class="printer-card">
+          <header>
+            <h3>Voron 2.4</h3>
+            <span class="badge success">Online</span>
+          </header>
+          <p>Tipo: CoreXY</p>
+          <p>Job atual: -</p>
+          <div class="meter"><span style="width: 30%"></span></div>
+          <div class="flex-row">
+            <button class="btn">View</button>
+            <button class="btn ghost">Open in Klipper</button>
+          </div>
+        </article>
+        <article class="printer-card">
+          <header>
+            <h3>Form 3</h3>
+            <span class="badge queue">Idle</span>
+          </header>
+          <p>Tipo: SLA</p>
+          <p>Job atual: Dental Model</p>
+          <div class="meter"><span style="width: 48%"></span></div>
+          <div class="flex-row">
+            <button class="btn">View</button>
+            <button class="btn ghost">Open in Klipper</button>
+          </div>
+        </article>
+      </div>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
