@@ -25,51 +25,46 @@
         <div>
           <p class="badge badge--info">Inventário</p>
           <h1>Printers</h1>
-          <p>Estado das impressoras, tipos e jobs atuais.</p>
+          <p>Cadastre e gerencie as impressoras conectadas ao Moonraker.</p>
         </div>
       </div>
 
-      <div class="flex-row" data-printer-cards>
-        <article class="printer-card">
-          <header>
-            <h3>Bambu X1</h3>
-            <span class="badge badge--printing">Printing</span>
-          </header>
-          <p>Tipo: CoreXY</p>
-          <p>Job atual: Drone Arm</p>
-          <div class="meter"><span style="width: 62%"></span></div>
-          <div class="flex-row">
-            <button class="btn">View</button>
-            <button class="btn ghost">Open in Klipper</button>
+      <section class="card">
+        <h2>Adicionar impressora</h2>
+        <form id="printer-form" class="form-grid">
+          <div class="form-control">
+            <label for="printer-name">Printer name</label>
+            <input id="printer-name" type="text" placeholder="Voron Trident" required>
           </div>
-        </article>
-        <article class="printer-card">
-          <header>
-            <h3>Voron 2.4</h3>
-            <span class="badge badge--completed">Online</span>
-          </header>
-          <p>Tipo: CoreXY</p>
-          <p>Job atual: -</p>
-          <div class="meter"><span style="width: 30%"></span></div>
-          <div class="flex-row">
-            <button class="btn">View</button>
-            <button class="btn ghost">Open in Klipper</button>
+          <div class="form-control">
+            <label for="printer-url">Moonraker URL</label>
+            <input id="printer-url" type="text" placeholder="http://192.168.0.120:7125" required>
           </div>
-        </article>
-        <article class="printer-card">
-          <header>
-            <h3>Form 3</h3>
-            <span class="badge badge--queued">Idle</span>
-          </header>
-          <p>Tipo: SLA</p>
-          <p>Job atual: Dental Model</p>
-          <div class="meter"><span style="width: 48%"></span></div>
-          <div class="flex-row">
-            <button class="btn">View</button>
-            <button class="btn ghost">Open in Klipper</button>
+          <div class="form-actions">
+            <button type="submit" class="btn">Adicionar impressora</button>
           </div>
-        </article>
-      </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="table-header">
+          <h2>Impressoras cadastradas</h2>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>URL do Moonraker</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="printer-list">
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
   <script src="../app.js"></script>
