@@ -697,7 +697,13 @@ function renderTimeline(jobs = []) {
     jobsByPrinter[job.printerId].push(job);
   });
 
-  const printerIds = Object.keys(jobsByPrinter);
+  const printerEntries = Object.keys(jobsByPrinter)
+    .map((printerId) => {
+      const printerJobs = jobsByPrinter[printerId];
+      const sampleJob = printerJobs[0] || {};
+      return { id: printerId, jobs: printerJobs, name: sampleJob.printerName || printerId };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
   const startDayHour = 8;
   const endDayHour = 24;
   const secondsRange = (endDayHour - startDayHour) * 3600;
@@ -716,17 +722,14 @@ function renderTimeline(jobs = []) {
     nowElement.style.transform = "translateX(-50%)";
   }
 
-  printerIds.forEach((printerId) => {
-    const printerJobs = jobsByPrinter[printerId];
-    const sampleJob = printerJobs[0];
-
+  printerEntries.forEach(({ id, jobs: printerJobs, name }) => {
     const printerItem = document.createElement("div");
     printerItem.className = "timeline-printer-item";
     const nameEl = document.createElement("div");
     nameEl.className = "timeline-printer-name";
-    nameEl.textContent = sampleJob.printerName;
+    nameEl.textContent = name;
 
-    const badge = createStatusBadgeElement(sampleJob.state || "unknown");
+    const badge = createStatusBadgeElement(printerJobs[0]?.state || "unknown");
 
     printerItem.append(nameEl, badge);
     printersContainer.appendChild(printerItem);
