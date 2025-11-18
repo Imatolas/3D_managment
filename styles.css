@@ -37,22 +37,36 @@ body {
 }
 
 .logo {
+
   font-size: 1.8rem;
   font-weight: 800;
   margin-bottom: 32px;
+
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin-bottom: 24px;
+
 }
 
 .menu {
   display: flex;
   flex-direction: column;
+
   gap: 18px;
+
+  gap: 12px;
+
 }
 
 .menu__item {
   color: var(--text);
   font-weight: 700;
   text-decoration: none;
+
   padding: 12px 12px;
+
+  padding: 10px 12px;
+
   border-radius: 10px;
   transition: color 0.2s ease, background 0.2s ease;
 }
@@ -78,6 +92,7 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
 }
 
+
 .panel__header {
   display: flex;
   align-items: center;
@@ -100,10 +115,15 @@ body {
 .panel__actions {
   display: flex;
   gap: 10px;
+
+.panel h2 {
+  margin-bottom: 8px;
+
 }
 
 .panel p {
   color: var(--muted);
+
 }
 
 .btn {
@@ -126,11 +146,18 @@ body {
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
+
+  margin-bottom: 16px;
+
 }
 
 .grid {
   display: grid;
+
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+
   gap: 16px;
 }
 
@@ -161,6 +188,7 @@ body {
   color: var(--muted);
   font-size: 0.9rem;
 }
+
 
 .kanban {
   display: grid;
@@ -230,6 +258,14 @@ body {
 .kanban__meta {
   color: var(--muted);
   font-size: 0.9rem;
+
+.timeline {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text);
+
 }
 
 .table {
@@ -240,6 +276,7 @@ body {
 .table__header,
 .table__row {
   display: grid;
+
   align-items: center;
   gap: 12px;
 }
@@ -254,6 +291,11 @@ body {
 .table--materials-usage .table__header,
 .table--materials-usage .table__row {
   grid-template-columns: repeat(3, 1fr);
+
+  grid-template-columns: 80px 1fr 140px 140px;
+  gap: 12px;
+  align-items: center;
+
 }
 
 .table__header {
@@ -265,6 +307,7 @@ body {
   background: var(--bg);
   padding: 12px;
   border-radius: 10px;
+
   border: 1px solid var(--border);
 }
 
@@ -286,6 +329,30 @@ body {
 
 .table__thumb--purple {
   background: linear-gradient(135deg, #e8ddff, #b79bff);
+
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 128, 0.08);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.tag--success {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.tag--warning {
+  background: #fff4e5;
+  color: #a05a00;
+
 }
 
 .materials {
@@ -328,7 +395,10 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 16px;
+
   margin-bottom: 16px;
+
+
 }
 
 .stats__value {
@@ -339,6 +409,7 @@ body {
 .stats__label {
   color: var(--muted);
 }
+
 
 .modal {
   position: fixed;
@@ -409,6 +480,7 @@ body {
   gap: 8px;
   margin-top: 10px;
 }
+
 
 @media (max-width: 900px) {
   .layout {

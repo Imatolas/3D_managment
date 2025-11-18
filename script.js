@@ -1,8 +1,10 @@
 const links = document.querySelectorAll('.menu__item');
+
 const modal = document.getElementById('modal');
 const addPrintBtn = document.getElementById('add-print');
 const closeTriggers = document.querySelectorAll('[data-close]');
 const form = document.getElementById('print-form');
+
 
 const setActive = (id) => {
   links.forEach((link) => {
@@ -36,6 +38,7 @@ const observer = new IntersectionObserver(
 
 const sections = document.querySelectorAll('section.panel');
 sections.forEach((section) => observer.observe(section));
+
 
 const openModal = () => {
   modal.classList.add('is-open');
@@ -80,3 +83,4 @@ form?.addEventListener('submit', (event) => {
     alert('Selecione uma data que esteja visível na linha do tempo.');
   }
 });
+

@@ -26,20 +26,27 @@
           <h2>Overview</h2>
           <p>Resumo geral das impressoras, trabalhos recentes e status do laboratório.</p>
         </div>
+        <h2>Overview</h2>
+        <p>Resumo geral das impressoras, trabalhos recentes e status do laboratório.</p>
         <div class="grid">
           <div class="card">
             <p class="card__label">Impressões em andamento</p>
             <p class="card__value">3</p>
+
             <p class="card__note">Atualizado há 5 minutos</p>
+
           </div>
           <div class="card">
             <p class="card__label">Fila de trabalhos</p>
             <p class="card__value">8</p>
+
             <p class="card__note">2 urgentes | 3 novos</p>
+
           </div>
           <div class="card">
             <p class="card__label">Tempo médio</p>
             <p class="card__value">5h 10m</p>
+
             <p class="card__note">Baseado nos últimos 20 trabalhos</p>
           </div>
         </div>
@@ -166,6 +173,30 @@
             <span>ABS</span>
             <span>1</span>
             <span>3h 10m</span>
+        <h2>Linha do tempo</h2>
+        <p>Eventos recentes e mudanças de estado.</p>
+        <ul class="timeline">
+          <li><strong>10:30</strong> — Impressão #142 concluída com sucesso.</li>
+          <li><strong>09:50</strong> — Substituição de bico na Impressora 2.</li>
+          <li><strong>09:00</strong> — Novo trabalho adicionado à fila.</li>
+        </ul>
+      </section>
+
+      <section id="impressions" class="panel">
+        <h2>Impressões</h2>
+        <p>Lista das impressões agendadas, em andamento ou pausadas.</p>
+        <div class="table">
+          <div class="table__header">
+            <span>ID</span><span>Projeto</span><span>Status</span><span>Estimativa</span>
+          </div>
+          <div class="table__row">
+            <span>#142</span><span>Suporte de câmera</span><span class="tag tag--success">Concluído</span><span>4h 30m</span>
+          </div>
+          <div class="table__row">
+            <span>#143</span><span>Case Raspberry Pi</span><span class="tag tag--warning">Em andamento</span><span>2h 15m</span>
+          </div>
+          <div class="table__row">
+            <span>#144</span><span>Protótipo ASA</span><span class="tag">Na fila</span><span>6h 20m</span>
           </div>
         </div>
       </section>
@@ -206,15 +237,38 @@
             <span>1</span>
             <span>16:00</span>
             <span>20:00</span>
+        <h2>Printers</h2>
+        <p>Status individual das impressoras.</p>
+        <div class="grid grid--wide">
+          <div class="card">
+            <p class="card__label">Impressora 1</p>
+            <p class="card__value">Disponível</p>
+            <p class="card__note">Temperatura: 200°C | Mesa: 60°C</p>
+          </div>
+          <div class="card">
+            <p class="card__label">Impressora 2</p>
+            <p class="card__value">Manutenção</p>
+            <p class="card__note">Troca de bico agendada</p>
+          </div>
+          <div class="card">
+            <p class="card__label">Impressora 3</p>
+            <p class="card__value">Imprimindo</p>
+            <p class="card__note">Material: PETG | 35%</p>
+
           </div>
         </div>
       </section>
 
       <section id="materials" class="panel">
+
         <div class="panel__header">
           <h2>Materiais</h2>
           <p>Estoque atualizado por material com barras de capacidade.</p>
         </div>
+
+        <h2>Materiais</h2>
+        <p>Controle de estoque e consumo.</p>
+
         <div class="materials">
           <div class="materials__item">
             <div>
@@ -243,6 +297,7 @@
               <span style="width: 35%"></span>
             </div>
           </div>
+
           <div class="materials__item">
             <div>
               <h3>Nylon</h3>
@@ -252,10 +307,12 @@
               <span style="width: 20%"></span>
             </div>
           </div>
+
         </div>
       </section>
 
       <section id="stats" class="panel">
+
         <div class="panel__header">
           <h2>Estatísticas</h2>
           <p>Métricas de consumo de material e tempo total por item.</p>
@@ -268,11 +325,20 @@
           <div>
             <p class="stats__value">94%</p>
             <p class="stats__label">Taxa de sucesso das impressões</p>
+
+        <h2>Estatísticas</h2>
+        <p>Métricas rápidas do laboratório.</p>
+        <div class="stats">
+          <div>
+            <p class="stats__value">94%</p>
+            <p class="stats__label">Taxa de sucesso</p>
+
           </div>
           <div>
             <p class="stats__value">28</p>
             <p class="stats__label">Peças concluídas (semana)</p>
           </div>
+
         </div>
         <div class="table table--materials-usage">
           <div class="table__header">
@@ -297,11 +363,17 @@
             <span>Nylon</span>
             <span>0.9 kg</span>
             <span>11h 30m</span>
+
+          <div>
+            <p class="stats__value">12.4 kg</p>
+            <p class="stats__label">Material consumido (mês)</p>
+
           </div>
         </div>
       </section>
     </main>
   </div>
+
 
   <div class="modal" id="modal" aria-hidden="true" role="dialog" aria-labelledby="modal-title">
     <div class="modal__backdrop" data-close></div>
