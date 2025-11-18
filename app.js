@@ -89,6 +89,20 @@ function getLayerLabel(displayStatus = {}) {
   return "N/A";
 }
 
+function computeLayerInfo(currentZ, layerHeight, objectHeight, fallbackLabel = "N/A") {
+  const validLayerHeight = Number.isFinite(layerHeight) && layerHeight > 0;
+  const validObjectHeight = Number.isFinite(objectHeight) && objectHeight > 0;
+  const totalLayers = validLayerHeight && validObjectHeight ? Math.round(objectHeight / layerHeight) : null;
+  const currentLayer =
+    validLayerHeight && Number.isFinite(currentZ) ? Math.max(1, Math.round(currentZ / layerHeight)) : null;
+
+  if (Number.isFinite(currentLayer) && Number.isFinite(totalLayers)) {
+    return `${currentLayer} / ${totalLayers}`;
+  }
+
+  return fallbackLabel || "N/A";
+}
+
 function estimateRemaining(printDuration, progress) {
   if (!Number.isFinite(printDuration) || !Number.isFinite(progress) || progress <= 0) return null;
   const remaining = printDuration * (1 / progress - 1);
@@ -122,9 +136,15 @@ function normalizeUrl(url) {
 function setPreviewVisibility(imgEl, placeholderEl, previewUrl) {
   if (!imgEl || !placeholderEl) return;
   if (previewUrl) {
+    imgEl.onload = () => {
+      imgEl.style.display = "block";
+      placeholderEl.style.display = "none";
+    };
+    imgEl.onerror = () => {
+      imgEl.style.display = "none";
+      placeholderEl.style.display = "block";
+    };
     imgEl.src = previewUrl;
-    imgEl.style.display = "block";
-    placeholderEl.style.display = "none";
   } else {
     imgEl.removeAttribute("src");
     imgEl.style.display = "none";
@@ -162,13 +182,16 @@ async function fetchMoonrakerStatus(printer) {
   const url = normalizeUrl(printer.url || "");
   if (!url) throw new Error("URL inválida");
 
-  const response = await fetch(`${url}/printer/objects/query?print_stats&display_status`);
+  const response = await fetch(`${url}/printer/objects/query?print_stats&display_status&gcode_move`);
   if (!response.ok) throw new Error("Falha ao consultar Moonraker");
 
   const payload = await response.json();
   const status = payload?.result?.status || {};
   const printStats = status.print_stats || {};
   const displayStatus = status.display_status || {};
+  const gcodeMove = status.gcode_move || {};
+
+  const currentZ = gcodeMove?.position?.z;
 
   const state = printStats.state || "Desconhecido";
   const filename = printStats.filename || "N/A";
@@ -184,30 +207,49 @@ async function fetchMoonrakerStatus(printer) {
     remaining,
     progress: Number.isFinite(progress) ? Math.round(progress * 100) : null,
     layerLabel,
+    displayStatus,
+    currentZ: Number.isFinite(currentZ) ? currentZ : null,
   };
 }
 
-async function fetchMoonrakerThumbnail(printer, filename) {
+async function fetchMoonrakerMetadata(printer, filename) {
   const baseUrl = normalizeUrl(printer.url || "");
-  if (!baseUrl || !filename || filename === "N/A") return null;
+  if (!baseUrl || !filename || filename === "N/A") return {};
 
   try {
     const response = await fetch(
       `${baseUrl}/server/files/metadata?filename=${encodeURIComponent(filename)}`
     );
-    if (!response.ok) return null;
+    if (!response.ok) throw new Error("Falha ao buscar metadata");
 
     const metadata = await response.json();
-    const thumbnails = metadata?.result?.thumbnails;
-    if (Array.isArray(thumbnails) && thumbnails.length > 0) {
-      const thumbPath = thumbnails[0].relative_path;
-      return `${baseUrl}/server/files/gcodes/${thumbPath}`;
-    }
-  } catch (error) {
-    console.error("Erro ao buscar thumbnail do Moonraker", error);
-  }
+    console.log("Metadata result:", metadata.result);
+    const meta = metadata?.result || {};
+    const thumbs = meta.thumbnails;
+    console.log("Thumbnails:", thumbs);
 
-  return null;
+    let previewUrl = null;
+    if (Array.isArray(thumbs) && thumbs.length > 0) {
+      const baseUrlTrimmed = baseUrl.replace(/\/$/, "");
+      const thumbPath = thumbs[0].relative_path;
+      const fileDir = filename.includes("/") ? filename.substring(0, filename.lastIndexOf("/")) : "";
+      const fullPath = fileDir ? `${fileDir}/${thumbPath}` : thumbPath;
+      previewUrl = `${baseUrlTrimmed}/server/files/${encodeURIComponent(fullPath)}`;
+    }
+
+    const slicerTimeRaw = meta.slicer_time ?? meta.estimated_time ?? meta.slicer_estimated_time ?? null;
+    const totalTimeRaw = meta.total_duration ?? meta.total_time ?? meta.print_duration ?? null;
+    const layerHeight = Number(meta.layer_height);
+    const objectHeight = Number(meta.object_height);
+
+    const slicerTime = Number.isFinite(Number(slicerTimeRaw)) ? Number(slicerTimeRaw) : null;
+    const totalTime = Number.isFinite(Number(totalTimeRaw)) ? Number(totalTimeRaw) : null;
+
+    return { meta, previewUrl, slicerTime, totalTime, layerHeight, objectHeight };
+  } catch (error) {
+    console.error("Erro ao buscar metadata do Moonraker", error);
+    return {};
+  }
 }
 
 function applyBadgeClass(badgeEl, status) {
@@ -218,12 +260,14 @@ function applyBadgeClass(badgeEl, status) {
 }
 
 function updatePrinterCardInfo(printer, elements) {
-  const { statusEl, jobEl, elapsedEl, remainingEl, layerEl, badgeEl } = elements;
+  const { statusEl, jobEl, elapsedEl, remainingEl, totalEl, slicerEl, layerEl, badgeEl } = elements;
   const statusText = printer.status || "Desconhecido";
   if (statusEl) statusEl.textContent = statusText;
   if (jobEl) jobEl.textContent = printer.job || "-";
   if (elapsedEl) elapsedEl.textContent = formatDuration(printer.printDuration);
   if (remainingEl) remainingEl.textContent = formatDuration(printer.remainingDuration);
+  if (totalEl) totalEl.textContent = formatDuration(printer.totalTime);
+  if (slicerEl) slicerEl.textContent = formatDuration(printer.slicerTime);
   if (layerEl) layerEl.textContent = printer.layerInfo || "N/A";
   applyBadgeClass(badgeEl, statusText);
 }
@@ -234,14 +278,25 @@ async function testarConexaoMoonraker(printer, index, elements) {
   let previewUrl = null;
   try {
     const data = await fetchMoonrakerStatus(printer);
-    previewUrl = await fetchMoonrakerThumbnail(printer, data.filename);
+    const metadata = await fetchMoonrakerMetadata(printer, data.filename);
+    previewUrl = metadata.previewUrl || null;
+
+    const layerInfo = computeLayerInfo(
+      data.currentZ,
+      metadata.layerHeight,
+      metadata.objectHeight,
+      getLayerLabel(data.displayStatus)
+    );
+
     printers[index] = {
       ...printer,
       status: data.state,
       job: data.filename,
       printDuration: data.printDuration,
       remainingDuration: data.remaining,
-      layerInfo: data.layerLabel,
+      layerInfo,
+      totalTime: metadata.totalTime,
+      slicerTime: metadata.slicerTime,
       progress: data.progress ?? printer.progress ?? 0,
       previewUrl,
     };
@@ -283,21 +338,27 @@ function createPrinterCard(printer, index) {
   infoBox.className = "printer-card-info";
 
   const statusRow = document.createElement("p");
-  statusRow.innerHTML = `<strong>Status:</strong> <span data-status-text></span>`;
+  statusRow.innerHTML = `<strong>Status:</strong> <span class="printer-status-value">-</span>`;
 
   const jobRow = document.createElement("p");
-  jobRow.innerHTML = `<strong>Job:</strong> <span data-job-text></span>`;
+  jobRow.innerHTML = `<strong>Job:</strong> <span class="printer-job-value">-</span>`;
 
   const elapsedRow = document.createElement("p");
-  elapsedRow.innerHTML = `<strong>Tempo impresso:</strong> <span data-elapsed-text></span>`;
+  elapsedRow.innerHTML = `<strong>Tempo impresso:</strong> <span class="printer-elapsed-value">N/A</span>`;
 
   const remainingRow = document.createElement("p");
-  remainingRow.innerHTML = `<strong>Tempo restante:</strong> <span data-remaining-text></span>`;
+  remainingRow.innerHTML = `<strong>Tempo restante:</strong> <span class="printer-remaining-value">N/A</span>`;
+
+  const totalRow = document.createElement("p");
+  totalRow.innerHTML = `<strong>Tempo total:</strong> <span class="printer-total-value">N/A</span>`;
+
+  const slicerRow = document.createElement("p");
+  slicerRow.innerHTML = `<strong>Fatiador:</strong> <span class="printer-slicer-value">N/A</span>`;
 
   const layerRow = document.createElement("p");
-  layerRow.innerHTML = `<strong>Layer:</strong> <span data-layer-text></span>`;
+  layerRow.innerHTML = `<strong>Layer:</strong> <span class="printer-layer-value">N/A</span>`;
 
-  infoBox.append(statusRow, jobRow, elapsedRow, remainingRow, layerRow);
+  infoBox.append(statusRow, jobRow, elapsedRow, remainingRow, totalRow, slicerRow, layerRow);
 
   const footer = document.createElement("div");
   footer.className = "printer-card-footer";
@@ -313,11 +374,13 @@ function createPrinterCard(printer, index) {
   footer.append(testButton, removeButton);
 
   const elements = {
-    statusEl: statusRow.querySelector("[data-status-text]"),
-    jobEl: jobRow.querySelector("[data-job-text]"),
-    elapsedEl: elapsedRow.querySelector("[data-elapsed-text]"),
-    remainingEl: remainingRow.querySelector("[data-remaining-text]"),
-    layerEl: layerRow.querySelector("[data-layer-text]"),
+    statusEl: statusRow.querySelector(".printer-status-value"),
+    jobEl: jobRow.querySelector(".printer-job-value"),
+    elapsedEl: elapsedRow.querySelector(".printer-elapsed-value"),
+    remainingEl: remainingRow.querySelector(".printer-remaining-value"),
+    totalEl: totalRow.querySelector(".printer-total-value"),
+    slicerEl: slicerRow.querySelector(".printer-slicer-value"),
+    layerEl: layerRow.querySelector(".printer-layer-value"),
     badgeEl: badge,
     previewImg: imageBox.querySelector(".printer-preview-img"),
     previewPlaceholder: imageBox.querySelector(".printer-preview-placeholder"),
