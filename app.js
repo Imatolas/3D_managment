@@ -39,36 +39,34 @@ const stats = {
   ],
 };
 
-const statusToClass = {
-  Printing: "info",
-  printing: "info",
-  Completed: "success",
-  complete: "success",
-  Queued: "queue",
-  Error: "danger",
-  error: "danger",
-  Online: "success",
-  Offline: "danger",
-  Idle: "queue",
-  idle: "queue",
-  Paused: "warning",
-  paused: "warning",
-  standby: "queue",
-  Desconhecido: "queue",
-};
+function applyStatusBadgeClasses(badgeEl, statusText) {
+  if (!badgeEl) return;
 
-const badgeByStatus = {
-  Printing: "badge--info",
-  Online: "badge--info",
-  Paused: "badge--muted",
-  Idle: "badge--muted",
-  Completed: "badge--completed",
-  Offline: "badge--error",
-};
+  const state = (statusText || "").toLowerCase();
+
+  badgeEl.className = "status-badge";
+
+  if (state === "complete" || state === "completed") {
+    badgeEl.classList.add("status-complete");
+  } else if (state === "printing") {
+    badgeEl.classList.add("status-printing");
+  } else if (state === "canceled" || state === "cancelled") {
+    badgeEl.classList.add("status-canceled");
+  } else {
+    badgeEl.classList.add("status-standby");
+  }
+
+  badgeEl.textContent = statusText || "Desconhecido";
+}
+
+function createStatusBadgeElement(statusText) {
+  const badge = document.createElement("span");
+  applyStatusBadgeClasses(badge, statusText);
+  return badge;
+}
 
 function createBadge(status) {
-  const cls = statusToClass[status] || "info";
-  return `<span class="badge ${cls}">${status}</span>`;
+  return createStatusBadgeElement(status).outerHTML;
 }
 
 function formatDuration(seconds) {
@@ -353,13 +351,6 @@ async function fetchMoonrakerMetadata(printer, filename) {
   }
 }
 
-function applyBadgeClass(badgeEl, status) {
-  if (!badgeEl) return;
-  const cls = badgeByStatus[status] || "badge--info";
-  badgeEl.className = `badge ${cls}`;
-  badgeEl.textContent = status;
-}
-
 function updatePrinterCardInfo(printer, elements) {
   const { statusEl, jobEl, elapsedEl, remainingEl, totalEl, slicerEl, layerEl, badgeEl } = elements;
   const statusText = printer.status || "Desconhecido";
@@ -370,7 +361,7 @@ function updatePrinterCardInfo(printer, elements) {
   if (totalEl) totalEl.textContent = formatDuration(printer.totalTime);
   if (slicerEl) slicerEl.textContent = formatDuration(printer.slicerTime);
   if (layerEl) layerEl.textContent = printer.layerInfo || "N/A";
-  applyBadgeClass(badgeEl, statusText);
+  applyStatusBadgeClasses(badgeEl, statusText);
 }
 
 function getCardElements(cardElement) {
@@ -383,7 +374,7 @@ function getCardElements(cardElement) {
     totalEl: cardElement.querySelector(".printer-total-value"),
     slicerEl: cardElement.querySelector(".printer-slicer-value"),
     layerEl: cardElement.querySelector(".printer-layer-value"),
-    badgeEl: cardElement.querySelector(".badge"),
+    badgeEl: cardElement.querySelector(".status-badge"),
     previewImg: cardElement.querySelector(".printer-preview-img"),
     previewPlaceholder: cardElement.querySelector(".printer-preview-placeholder"),
   };
@@ -461,9 +452,7 @@ function createPrinterCard(printer, index) {
   name.className = "printer-card-name";
   name.textContent = printer.name;
 
-  const badge = document.createElement("span");
-  badge.className = "badge badge--info";
-  badge.textContent = printer.status || "Desconhecido";
+  const badge = createStatusBadgeElement(printer.status || "Desconhecido");
 
   const imageBox = document.createElement("div");
   imageBox.className = "printer-card-image";
@@ -585,7 +574,6 @@ function renderPrints(jobs = []) {
     }
 
     const tr = document.createElement("tr");
-    const stateClass = (job.state || "unknown").toLowerCase();
 
     const thumbCell = document.createElement("td");
     index += 1;
@@ -601,11 +589,8 @@ function renderPrints(jobs = []) {
     materialCell.textContent = job.material || "-";
 
     const statusCell = document.createElement("td");
-    statusCell.innerHTML = `
-      <span class="status-pill status-pill--${stateClass}">
-        ${job.state || "unknown"}
-      </span>
-    `;
+    const badge = createStatusBadgeElement(job.state || "unknown");
+    statusCell.appendChild(badge);
 
     const remainingCell = document.createElement("td");
     let remainingText = "N/A";
@@ -734,16 +719,16 @@ function renderTimeline(jobs = []) {
   printerIds.forEach((printerId) => {
     const printerJobs = jobsByPrinter[printerId];
     const sampleJob = printerJobs[0];
-    const stateClass = (sampleJob.state || "unknown").toLowerCase();
 
     const printerItem = document.createElement("div");
     printerItem.className = "timeline-printer-item";
-    printerItem.innerHTML = `
-      <div class="timeline-printer-name">${sampleJob.printerName}</div>
-      <span class="status-pill status-pill--${stateClass}">
-        ${sampleJob.state || "unknown"}
-      </span>
-    `;
+    const nameEl = document.createElement("div");
+    nameEl.className = "timeline-printer-name";
+    nameEl.textContent = sampleJob.printerName;
+
+    const badge = createStatusBadgeElement(sampleJob.state || "unknown");
+
+    printerItem.append(nameEl, badge);
     printersContainer.appendChild(printerItem);
 
     const track = document.createElement("div");
