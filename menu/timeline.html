@@ -30,46 +30,22 @@
       </div>
 
       <div class="timeline-wrapper">
-        <div class="printer-list" data-printer-status>
-          <div class="item"><span>Form 3</span><span class="badge badge--completed">Online</span></div>
-          <div class="item"><span>Bambu X1</span><span class="badge badge--printing">Printing</span></div>
-          <div class="item"><span>Prusa MK4</span><span class="badge badge--queued">Idle</span></div>
-          <div class="item"><span>Voron 2.4</span><span class="badge badge--error">Paused</span></div>
-        </div>
+        <div class="timeline-layout">
+          <aside class="printer-list timeline-printer-list">
+            <div id="timeline-printer-list"></div>
+          </aside>
 
-        <div class="timeline-area" data-timeline>
-          <div class="timeline-scale">
-            <span>8 AM</span>
-            <span>12 PM</span>
-            <span>4 PM</span>
-            <span>8 PM</span>
-            <span>12 AM</span>
-          </div>
-          <div class="now-line"></div>
-          <div class="timeline-track" data-printer="Form 3">
-            <div class="job-block" style="left:10%; width:18%;">
-              <strong>Dental Model</strong>
-              <small>Resin · 9:00 - 11:00</small>
+          <section class="timeline-area timeline-main">
+            <div class="timeline-scale">
+              <span>8 AM</span>
+              <span>12 PM</span>
+              <span>4 PM</span>
+              <span>8 PM</span>
+              <span>12 AM</span>
             </div>
-          </div>
-          <div class="timeline-track" data-printer="Bambu X1">
-            <div class="job-block" style="left:36%; width:26%;">
-              <strong>Drone Arm</strong>
-              <small>PETG · 12:00 - 16:00</small>
-            </div>
-          </div>
-          <div class="timeline-track" data-printer="Prusa MK4">
-            <div class="job-block" style="left:62%; width:20%;">
-              <strong>Spool Bracket</strong>
-              <small>PLA · 16:30 - 19:00</small>
-            </div>
-          </div>
-          <div class="timeline-track" data-printer="Voron 2.4">
-            <div class="job-block" style="left:28%; width:20%;">
-              <strong>Gear Housing</strong>
-              <small>ABS · 11:00 - 13:30</small>
-            </div>
-          </div>
+            <div class="now-line"></div>
+            <div class="timeline-tracks" id="timeline-tracks"></div>
+          </section>
         </div>
       </div>
     </main>
