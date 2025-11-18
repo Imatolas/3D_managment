@@ -57,9 +57,42 @@ const statusToClass = {
   Desconhecido: "queue",
 };
 
+const badgeByStatus = {
+  Printing: "badge--info",
+  Online: "badge--info",
+  Paused: "badge--muted",
+  Idle: "badge--muted",
+  Completed: "badge--completed",
+  Offline: "badge--error",
+};
+
 function createBadge(status) {
   const cls = statusToClass[status] || "info";
   return `<span class="badge ${cls}">${status}</span>`;
+}
+
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "N/A";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const parts = [];
+  if (hours) parts.push(`${hours} h`);
+  parts.push(`${minutes} min`);
+  return parts.join(" ");
+}
+
+function getLayerLabel(displayStatus = {}) {
+  const current = displayStatus.current_layer;
+  const total = displayStatus.total_layer;
+  if (Number.isFinite(current) && Number.isFinite(total)) return `${current} / ${total}`;
+  if (Number.isFinite(current)) return `${current}`;
+  return "N/A";
+}
+
+function estimateRemaining(printDuration, progress) {
+  if (!Number.isFinite(printDuration) || !Number.isFinite(progress) || progress <= 0) return null;
+  const remaining = printDuration * (1 / progress - 1);
+  return remaining >= 0 ? remaining : null;
 }
 
 function loadPrinters() {
@@ -101,71 +134,173 @@ function addPrinter(name, url) {
     progress: 0,
   });
   savePrinters(printers);
-  renderPrintersTable();
+  renderPrintersCards();
   renderPrinters();
 }
 
 function removePrinter(index) {
   printers.splice(index, 1);
   savePrinters(printers);
-  renderPrintersTable();
+  renderPrintersCards();
   renderPrinters();
 }
 
-async function testarConexaoMoonraker(printer, index, statusCell) {
+async function fetchMoonrakerStatus(printer) {
   const url = normalizeUrl(printer.url || "");
-  if (!url) {
-    statusCell.textContent = "URL inválida";
+  if (!url) throw new Error("URL inválida");
+
+  const response = await fetch(`${url}/printer/objects/query?print_stats&display_status`);
+  if (!response.ok) throw new Error("Falha ao consultar Moonraker");
+
+  const payload = await response.json();
+  const status = payload?.result?.status || {};
+  const printStats = status.print_stats || {};
+  const displayStatus = status.display_status || {};
+
+  const state = printStats.state || "Desconhecido";
+  const filename = printStats.filename || "N/A";
+  const progress = Number(displayStatus.progress);
+  const printDuration = Number(printStats.print_duration);
+  const remaining = estimateRemaining(printDuration, progress);
+  const layerLabel = getLayerLabel(displayStatus);
+
+  return {
+    state,
+    filename,
+    printDuration,
+    remaining,
+    progress: Number.isFinite(progress) ? Math.round(progress * 100) : null,
+    layerLabel,
+  };
+}
+
+function applyBadgeClass(badgeEl, status) {
+  if (!badgeEl) return;
+  const cls = badgeByStatus[status] || "badge--info";
+  badgeEl.className = `badge ${cls}`;
+  badgeEl.textContent = status;
+}
+
+function updatePrinterCardInfo(printer, elements) {
+  const { statusEl, jobEl, elapsedEl, remainingEl, layerEl, badgeEl } = elements;
+  const statusText = printer.status || "Desconhecido";
+  if (statusEl) statusEl.textContent = statusText;
+  if (jobEl) jobEl.textContent = printer.job || "-";
+  if (elapsedEl) elapsedEl.textContent = formatDuration(printer.printDuration);
+  if (remainingEl) remainingEl.textContent = formatDuration(printer.remainingDuration);
+  if (layerEl) layerEl.textContent = printer.layerInfo || "N/A";
+  applyBadgeClass(badgeEl, statusText);
+}
+
+async function testarConexaoMoonraker(printer, index, elements) {
+  if (elements.statusEl) elements.statusEl.textContent = "Testando...";
+
+  try {
+    const data = await fetchMoonrakerStatus(printer);
+    printers[index] = {
+      ...printer,
+      status: data.state,
+      job: data.filename,
+      printDuration: data.printDuration,
+      remainingDuration: data.remaining,
+      layerInfo: data.layerLabel,
+      progress: data.progress ?? printer.progress ?? 0,
+    };
+  } catch (error) {
+    printers[index] = {
+      ...printer,
+      status: "Offline",
+    };
+  }
+
+  savePrinters(printers);
+  renderPrinters();
+  renderPrintersCards();
+}
+
+function createPrinterCard(printer, index) {
+  const card = document.createElement("article");
+  card.className = "printer-card card";
+
+  const name = document.createElement("h2");
+  name.className = "printer-card-name";
+  name.textContent = printer.name;
+
+  const badge = document.createElement("span");
+  badge.className = "badge badge--info";
+  badge.textContent = printer.status || "Desconhecido";
+
+  const imageBox = document.createElement("div");
+  imageBox.className = "printer-card-image";
+  imageBox.innerHTML = "<span>Preview da impressora</span>";
+
+  const infoBox = document.createElement("div");
+  infoBox.className = "printer-card-info";
+
+  const statusRow = document.createElement("p");
+  statusRow.innerHTML = `<strong>Status:</strong> <span data-status-text></span>`;
+
+  const jobRow = document.createElement("p");
+  jobRow.innerHTML = `<strong>Job:</strong> <span data-job-text></span>`;
+
+  const elapsedRow = document.createElement("p");
+  elapsedRow.innerHTML = `<strong>Tempo impresso:</strong> <span data-elapsed-text></span>`;
+
+  const remainingRow = document.createElement("p");
+  remainingRow.innerHTML = `<strong>Tempo restante:</strong> <span data-remaining-text></span>`;
+
+  const layerRow = document.createElement("p");
+  layerRow.innerHTML = `<strong>Layer:</strong> <span data-layer-text></span>`;
+
+  infoBox.append(statusRow, jobRow, elapsedRow, remainingRow, layerRow);
+
+  const footer = document.createElement("div");
+  footer.className = "printer-card-footer";
+
+  const testButton = document.createElement("button");
+  testButton.className = "btn btn-small";
+  testButton.textContent = "Testar conexão";
+
+  const removeButton = document.createElement("button");
+  removeButton.className = "btn btn-small btn-danger";
+  removeButton.textContent = "Remover";
+
+  footer.append(testButton, removeButton);
+
+  const elements = {
+    statusEl: statusRow.querySelector("[data-status-text]"),
+    jobEl: jobRow.querySelector("[data-job-text]"),
+    elapsedEl: elapsedRow.querySelector("[data-elapsed-text]"),
+    remainingEl: remainingRow.querySelector("[data-remaining-text]"),
+    layerEl: layerRow.querySelector("[data-layer-text]"),
+    badgeEl: badge,
+  };
+
+  updatePrinterCardInfo(printer, elements);
+
+  testButton.addEventListener("click", () => testarConexaoMoonraker(printer, index, elements));
+  removeButton.addEventListener("click", () => removePrinter(index));
+
+  card.append(name, badge, imageBox, infoBox, footer);
+  return card;
+}
+
+function renderPrintersCards() {
+  const grid = document.getElementById("printers-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  if (!printers.length) {
+    const empty = document.createElement("p");
+    empty.className = "text-muted";
+    empty.textContent = "Nenhuma impressora cadastrada.";
+    grid.appendChild(empty);
     return;
   }
 
-  statusCell.textContent = "Testando...";
-  try {
-    const response = await fetch(`${url}/printer/info`);
-    const status = response.ok ? "Online" : "Offline";
-    printers[index].status = status;
-    statusCell.textContent = status;
-  } catch (error) {
-    printers[index].status = "Offline";
-    statusCell.textContent = "Offline";
-  }
-  savePrinters(printers);
-  renderPrinters();
-}
-
-function renderPrintersTable() {
-  const tbody = document.getElementById("printer-list");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
   printers.forEach((printer, index) => {
-    const row = document.createElement("tr");
-
-    const nameTd = document.createElement("td");
-    nameTd.textContent = printer.name;
-
-    const urlTd = document.createElement("td");
-    urlTd.textContent = printer.url || "-";
-
-    const statusTd = document.createElement("td");
-    statusTd.textContent = printer.status || "Desconhecido";
-
-    const actionsTd = document.createElement("td");
-    actionsTd.className = "actions";
-
-    const testButton = document.createElement("button");
-    testButton.textContent = "Testar";
-    testButton.className = "btn ghost";
-    testButton.addEventListener("click", () => testarConexaoMoonraker(printer, index, statusTd));
-
-    const removeButton = document.createElement("button");
-    removeButton.textContent = "Remover";
-    removeButton.className = "btn danger";
-    removeButton.addEventListener("click", () => removePrinter(index));
-
-    actionsTd.append(testButton, removeButton);
-    row.append(nameTd, urlTd, statusTd, actionsTd);
-    tbody.appendChild(row);
+    const card = createPrinterCard(printer, index);
+    grid.appendChild(card);
   });
 }
 
@@ -358,7 +493,7 @@ function bindForm() {
 function init() {
   printers = loadPrinters();
   bindForm();
-  renderPrintersTable();
+  renderPrintersCards();
   renderOverview();
   renderPrints();
   renderPrinters();
