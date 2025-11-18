@@ -26,13 +26,6 @@ const materials = [
   { name: "Nylon", color: "#6b7280", type: "Nylon", qty: 1.8, unit: "kg", last: "Há 5 dias" },
 ];
 
-const timelineBlocks = [
-  { printer: "Form 3", title: "Dental Model", operator: "Laura", start: 8, duration: 3 },
-  { printer: "Bambu X1", title: "Drone Arm", operator: "Henrique", start: 9.5, duration: 4 },
-  { printer: "Prusa MK4", title: "Spool Bracket", operator: "Ana", start: 14, duration: 2.5 },
-  { printer: "Voron 2.4", title: "Gear Housing", operator: "Carlos", start: 16, duration: 3.5 },
-];
-
 const stats = {
   jobsThisMonth: 74,
   totalHours: 312,
@@ -47,13 +40,19 @@ const stats = {
 
 const statusToClass = {
   Printing: "info",
+  printing: "info",
   Completed: "success",
+  complete: "success",
   Queued: "queue",
   Error: "danger",
+  error: "danger",
   Online: "success",
   Offline: "danger",
   Idle: "queue",
+  idle: "queue",
   Paused: "warning",
+  paused: "warning",
+  standby: "queue",
   Desconhecido: "queue",
 };
 
@@ -72,13 +71,18 @@ function createBadge(status) {
 }
 
 function formatDuration(seconds) {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "N/A";
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const parts = [];
-  if (hours) parts.push(`${hours} h`);
-  parts.push(`${minutes} min`);
-  return parts.join(" ");
+  if (!seconds || seconds <= 0) return "N/A";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h} h ${m} min`;
+  return `${m} min`;
+}
+
+function formatHour(timestamp) {
+  const d = new Date(timestamp * 1000);
+  const h = d.getHours();
+  const m = d.getMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
 }
 
 function getLayerLabel(displayStatus = {}) {
@@ -131,6 +135,75 @@ function savePrinters(list) {
 
 function normalizeUrl(url) {
   return url.trim().replace(/\/$/, "");
+}
+
+async function coletarJobsDasImpressoras() {
+  const storedPrinters = loadPrinters();
+  const jobs = [];
+
+  for (const [index, printer] of storedPrinters.entries()) {
+    const baseUrl = normalizeUrl(printer.url || "");
+    if (!baseUrl) continue;
+
+    try {
+      const resp = await fetch(
+        `${baseUrl}/printer/objects/query?print_stats&display_status`
+      );
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const status = data.result?.status || {};
+
+      const printStats = status.print_stats || {};
+      const displayStatus = status.display_status || {};
+
+      const state = printStats.state;
+      const filename = printStats.filename;
+      const progress = Number(displayStatus.progress);
+      const elapsed = Number(printStats.print_duration) || 0;
+
+      let totalTime = null;
+      let slicerTime = null;
+      let material = null;
+
+      if (filename) {
+        const metaResp = await fetch(
+          `${baseUrl}/server/files/metadata?filename=${encodeURIComponent(filename)}`
+        );
+        if (metaResp.ok) {
+          const meta = (await metaResp.json()).result || {};
+          totalTime = meta.total_duration ?? meta.total_time ?? meta.print_duration ?? null;
+          slicerTime = meta.slicer_time ?? meta.estimated_time ?? meta.slicer_estimated_time ?? null;
+          material = meta.filament_name ?? meta.material ?? null;
+
+          totalTime = Number.isFinite(Number(totalTime)) ? Number(totalTime) : null;
+          slicerTime = Number.isFinite(Number(slicerTime)) ? Number(slicerTime) : null;
+        }
+      }
+
+      const now = Date.now() / 1000;
+      const startTimestamp = elapsed > 0 ? now - elapsed : null;
+      const duration = totalTime || slicerTime || null;
+      const endTimestamp = startTimestamp && duration ? startTimestamp + duration : null;
+
+      jobs.push({
+        printerId: printer.id || printer.url || printer.name || String(index),
+        printerName: printer.name,
+        state,
+        filename,
+        material,
+        elapsed,
+        totalTime,
+        slicerTime,
+        startTimestamp,
+        endTimestamp,
+        progress: Number.isFinite(progress) ? progress : null,
+      });
+    } catch (error) {
+      console.error("Erro ao coletar job da impressora", printer.name, error);
+    }
+  }
+
+  return jobs;
 }
 
 function setPreviewVisibility(imgEl, placeholderEl, previewUrl) {
@@ -344,7 +417,6 @@ async function atualizarPrinterMoonraker(printer, cardElement) {
   savePrinters(printers);
   renderPrinters();
   renderOverview();
-  renderTimeline();
   renderStats();
 }
 
@@ -473,23 +545,50 @@ function iniciarAtualizacaoAutomatica(intervalMs = 10000) {
   return setInterval(atualizarTodas, intervalMs);
 }
 
-function renderPrints() {
-  const tbody = document.querySelector("[data-print-rows]");
+function renderPrints(jobs = []) {
+  const tbody = document.getElementById("prints-table-body");
   if (!tbody) return;
-  tbody.innerHTML = jobs
-    .map(
-      (job) => `
-      <tr>
-        <td><div class="thumbnail">${job.code}</div></td>
-        <td>${job.name}</td>
-        <td>${job.printer}</td>
-        <td>${job.material}</td>
-        <td>${createBadge(job.status)}</td>
-        <td>${job.remaining}</td>
-      </tr>
-    `
-    )
-    .join("");
+  tbody.innerHTML = "";
+
+  jobs.forEach((job, index) => {
+    if (!job.state || job.state === "standby" || job.state === "idle") return;
+
+    const tr = document.createElement("tr");
+
+    const thumbCell = document.createElement("td");
+    thumbCell.innerHTML = `<div class="thumbnail">${String.fromCharCode(65 + index)}${index + 1}</div>`;
+
+    const nameCell = document.createElement("td");
+    nameCell.textContent = job.filename || "Job atual";
+
+    const printerCell = document.createElement("td");
+    printerCell.textContent = job.printerName || "-";
+
+    const materialCell = document.createElement("td");
+    materialCell.textContent = job.material || "-";
+
+    const statusCell = document.createElement("td");
+    const stateText = job.state || "Unknown";
+    const stateLabel = stateText.charAt(0).toUpperCase() + stateText.slice(1);
+    statusCell.innerHTML = createBadge(stateLabel);
+
+    const remainingCell = document.createElement("td");
+    let remaining = "N/A";
+    if (job.totalTime && Number.isFinite(job.elapsed)) {
+      const remSeconds = Math.max(job.totalTime - job.elapsed, 0);
+      remaining = formatDuration(remSeconds);
+    }
+    remainingCell.textContent = remaining;
+
+    tr.appendChild(thumbCell);
+    tr.appendChild(nameCell);
+    tr.appendChild(printerCell);
+    tr.appendChild(materialCell);
+    tr.appendChild(statusCell);
+    tr.appendChild(remainingCell);
+
+    tbody.appendChild(tr);
+  });
 }
 
 function renderPrinters() {
@@ -562,35 +661,75 @@ function renderMaterials() {
   }
 }
 
-function renderTimeline() {
-  const list = document.querySelector("[data-printer-status]");
-  if (list) {
-    list.innerHTML = printers
-      .slice(0, 4)
-      .map((p) => `<div class="item"><span>${p.name}</span>${createBadge(p.status || "Desconhecido")}</div>`)
-      .join("");
-  }
+function renderTimeline(jobs = []) {
+  const printersContainer = document.getElementById("timeline-printer-list");
+  const tracksContainer = document.getElementById("timeline-tracks");
+  if (!printersContainer || !tracksContainer) return;
 
-  const tracks = document.querySelectorAll("[data-timeline] .track");
-  if (!tracks.length) return;
+  printersContainer.innerHTML = "";
+  tracksContainer.innerHTML = "";
 
-  const trackMap = new Map();
-  tracks.forEach((track) => {
-    track.innerHTML = "";
-    trackMap.set(track.getAttribute("data-printer"), track);
+  const jobsByPrinter = {};
+  jobs.forEach((job) => {
+    if (!jobsByPrinter[job.printerId]) {
+      jobsByPrinter[job.printerId] = [];
+    }
+    jobsByPrinter[job.printerId].push(job);
   });
 
-  timelineBlocks.forEach((block) => {
-    const track = trackMap.get(block.printer);
-    if (!track) return;
-    const left = (block.start / 24) * 100;
-    const width = (block.duration / 24) * 100;
-    const div = document.createElement("div");
-    div.className = "block";
-    div.style.left = `${left}%`;
-    div.style.width = `${width}%`;
-    div.innerHTML = `<strong>${block.title}</strong><span class="meta">${block.operator} • ${block.duration}h</span>`;
-    track.appendChild(div);
+  const printerIds = Object.keys(jobsByPrinter);
+
+  const startDayHour = 8;
+  const endDayHour = 24;
+  const secondsPerDay = (endDayHour - startDayHour) * 3600;
+
+  printerIds.forEach((printerId) => {
+    const printerJobs = jobsByPrinter[printerId];
+    const sampleJob = printerJobs[0];
+
+    const printerItem = document.createElement("div");
+    printerItem.className = "item timeline-printer-item";
+    const stateLabel = (sampleJob.state || "unknown").toString();
+    const displayState = stateLabel.charAt(0).toUpperCase() + stateLabel.slice(1);
+    printerItem.innerHTML = `
+      <span>${sampleJob.printerName}</span>
+      ${createBadge(displayState)}
+    `;
+    printersContainer.appendChild(printerItem);
+
+    const track = document.createElement("div");
+    track.className = "timeline-track";
+
+    printerJobs.forEach((job) => {
+      if (!job.startTimestamp || !job.endTimestamp) return;
+
+      const date = new Date(job.startTimestamp * 1000);
+      const startSeconds =
+        (date.getHours() - startDayHour) * 3600 + date.getMinutes() * 60;
+      if (startSeconds < 0 || startSeconds > secondsPerDay) return;
+
+      const durationSeconds = job.endTimestamp - job.startTimestamp;
+      const leftPercent = (startSeconds / secondsPerDay) * 100;
+      const widthPercent = Math.max((durationSeconds / secondsPerDay) * 100, 5);
+
+      const jobBlock = document.createElement("div");
+      jobBlock.className = "job-block";
+      jobBlock.style.left = `${leftPercent}%`;
+      jobBlock.style.width = `${widthPercent}%`;
+      jobBlock.innerHTML = `
+        <strong>${job.filename || "Job atual"}</strong>
+        <small>
+          ${(job.material || "").toString()} ${
+            job.startTimestamp && job.endTimestamp
+              ? " · " + formatHour(job.startTimestamp) + " - " + formatHour(job.endTimestamp)
+              : ""
+          }
+        </small>
+      `;
+      track.appendChild(jobBlock);
+    });
+
+    tracksContainer.appendChild(track);
   });
 }
 
@@ -645,6 +784,17 @@ function renderStats() {
   }
 }
 
+function iniciarAtualizacaoTimelineEPrints() {
+  async function atualizar() {
+    const jobs = await coletarJobsDasImpressoras();
+    renderTimeline(jobs);
+    renderPrints(jobs);
+  }
+
+  atualizar();
+  setInterval(atualizar, 10000);
+}
+
 function bindForm() {
   const form = document.getElementById("printer-form");
   if (!form) return;
@@ -664,14 +814,18 @@ function init() {
   bindForm();
   renderPrintersCards();
   renderOverview();
-  renderPrints();
   renderPrinters();
   renderMaterials();
-  renderTimeline();
   renderStats();
 
   if (document.getElementById("printers-grid")) {
     iniciarAtualizacaoAutomatica();
+  }
+
+  const timelineTracks = document.getElementById("timeline-tracks");
+  const printsTable = document.getElementById("prints-table-body");
+  if (timelineTracks || printsTable) {
+    iniciarAtualizacaoTimelineEPrints();
   }
 }
 
