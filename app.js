@@ -272,10 +272,29 @@ function updatePrinterCardInfo(printer, elements) {
   applyBadgeClass(badgeEl, statusText);
 }
 
-async function testarConexaoMoonraker(printer, index, elements) {
+function getCardElements(cardElement) {
+  if (!cardElement) return {};
+  return {
+    statusEl: cardElement.querySelector(".printer-status-value"),
+    jobEl: cardElement.querySelector(".printer-job-value"),
+    elapsedEl: cardElement.querySelector(".printer-elapsed-value"),
+    remainingEl: cardElement.querySelector(".printer-remaining-value"),
+    totalEl: cardElement.querySelector(".printer-total-value"),
+    slicerEl: cardElement.querySelector(".printer-slicer-value"),
+    layerEl: cardElement.querySelector(".printer-layer-value"),
+    badgeEl: cardElement.querySelector(".badge"),
+    previewImg: cardElement.querySelector(".printer-preview-img"),
+    previewPlaceholder: cardElement.querySelector(".printer-preview-placeholder"),
+  };
+}
+
+async function atualizarPrinterMoonraker(printer, cardElement) {
+  const elements = getCardElements(cardElement);
   if (elements.statusEl) elements.statusEl.textContent = "Testando...";
 
-  let previewUrl = null;
+  let previewUrl = printer.previewUrl || null;
+  let updatedPrinter = { ...printer };
+
   try {
     const data = await fetchMoonrakerStatus(printer);
     const metadata = await fetchMoonrakerMetadata(printer, data.filename);
@@ -288,7 +307,7 @@ async function testarConexaoMoonraker(printer, index, elements) {
       getLayerLabel(data.displayStatus)
     );
 
-    printers[index] = {
+    updatedPrinter = {
       ...printer,
       status: data.state,
       job: data.filename,
@@ -301,17 +320,36 @@ async function testarConexaoMoonraker(printer, index, elements) {
       previewUrl,
     };
   } catch (error) {
-    printers[index] = {
+    console.error("Erro ao atualizar impressora no Moonraker", error);
+    updatedPrinter = {
       ...printer,
       status: "Offline",
       previewUrl: null,
     };
+    previewUrl = null;
   }
 
+  const printerIndex = Number(cardElement?.dataset?.printerId);
+  if (Number.isInteger(printerIndex) && printerIndex >= 0) {
+    printers[printerIndex] = updatedPrinter;
+  } else {
+    const foundIndex = printers.findIndex(
+      (stored) => stored.name === printer.name && stored.url === printer.url
+    );
+    if (foundIndex >= 0) printers[foundIndex] = updatedPrinter;
+  }
+
+  updatePrinterCardInfo(updatedPrinter, elements);
   setPreviewVisibility(elements.previewImg, elements.previewPlaceholder, previewUrl);
   savePrinters(printers);
   renderPrinters();
-  renderPrintersCards();
+  renderOverview();
+  renderTimeline();
+  renderStats();
+}
+
+async function testarConexaoMoonraker(printer, cardElement) {
+  return atualizarPrinterMoonraker(printer, cardElement);
 }
 
 function createPrinterCard(printer, index) {
@@ -389,7 +427,7 @@ function createPrinterCard(printer, index) {
   updatePrinterCardInfo(printer, elements);
   setPreviewVisibility(elements.previewImg, elements.previewPlaceholder, printer.previewUrl);
 
-  testButton.addEventListener("click", () => testarConexaoMoonraker(printer, index, elements));
+  testButton.addEventListener("click", () => testarConexaoMoonraker(printer, card));
   removeButton.addEventListener("click", () => removePrinter(index));
 
   card.append(name, badge, imageBox, infoBox, footer);
@@ -413,6 +451,26 @@ function renderPrintersCards() {
     const card = createPrinterCard(printer, index);
     grid.appendChild(card);
   });
+}
+
+function iniciarAtualizacaoAutomatica(intervalMs = 10000) {
+  const grid = document.getElementById("printers-grid");
+  if (!grid) return;
+
+  const atualizarTodas = () => {
+    printers = loadPrinters();
+    printers.forEach((printer, index) => {
+      const card = document.querySelector(
+        `.printer-card[data-printer-id="${index}"]`
+      );
+      if (card) {
+        atualizarPrinterMoonraker(printer, card);
+      }
+    });
+  };
+
+  atualizarTodas();
+  return setInterval(atualizarTodas, intervalMs);
 }
 
 function renderPrints() {
@@ -611,6 +669,10 @@ function init() {
   renderMaterials();
   renderTimeline();
   renderStats();
+
+  if (document.getElementById("printers-grid")) {
+    iniciarAtualizacaoAutomatica();
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);
