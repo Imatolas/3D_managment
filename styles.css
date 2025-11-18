@@ -335,6 +335,38 @@ img {
   color: #374151;
 }
 
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.status-complete {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.status-printing {
+  background: #e0ecff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+.status-canceled {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.status-standby {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
 /* Tables */
 .table-wrapper {
   overflow-x: auto;
