@@ -4,28 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>3D Print Management - Printers</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
   <div class="layout">
     <aside class="sidebar">
       <div class="logo">3D Print Management</div>
       <nav class="nav">
-        <a href="/index.html">Overview</a>
-        <a href="/menu/timeline.html">Timeline</a>
-        <a href="/menu/prints.html">Prints</a>
-        <a class="active" href="/menu/printers.html">Printers</a>
-        <a href="/menu/materials.html">Materials</a>
-        <a href="/menu/statistics.html">Statistics</a>
+        <a href="../index.html">Overview</a>
+        <a href="../menu/timeline.html">Timeline</a>
+        <a href="../menu/prints.html">Prints</a>
+        <a class="active" href="../menu/printers.html">Printers</a>
+        <a href="../menu/materials.html">Materials</a>
+        <a href="../menu/statistics.html">Statistics</a>
       </nav>
     </aside>
 
     <main class="content">
       <div class="header">
         <div>
-          <p class="badge info">Inventário</p>
+          <p class="badge badge--info">Inventário</p>
           <h1>Printers</h1>
-          <p style="color: var(--muted);">Estado das impressoras, tipos e jobs atuais.</p>
+          <p>Estado das impressoras, tipos e jobs atuais.</p>
         </div>
       </div>
 
@@ -33,7 +33,7 @@
         <article class="printer-card">
           <header>
             <h3>Bambu X1</h3>
-            <span class="badge info">Printing</span>
+            <span class="badge badge--printing">Printing</span>
           </header>
           <p>Tipo: CoreXY</p>
           <p>Job atual: Drone Arm</p>
@@ -46,7 +46,7 @@
         <article class="printer-card">
           <header>
             <h3>Voron 2.4</h3>
-            <span class="badge success">Online</span>
+            <span class="badge badge--completed">Online</span>
           </header>
           <p>Tipo: CoreXY</p>
           <p>Job atual: -</p>
@@ -59,7 +59,7 @@
         <article class="printer-card">
           <header>
             <h3>Form 3</h3>
-            <span class="badge queue">Idle</span>
+            <span class="badge badge--queued">Idle</span>
           </header>
           <p>Tipo: SLA</p>
           <p>Job atual: Dental Model</p>
@@ -72,6 +72,6 @@
       </div>
     </main>
   </div>
-  <script src="/app.js"></script>
+  <script src="../app.js"></script>
 </body>
 </html>
