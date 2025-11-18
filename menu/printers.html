@@ -47,23 +47,13 @@
       </section>
 
       <section class="card">
-        <div class="table-header">
-          <h2>Impressoras cadastradas</h2>
+        <div class="card-header">
+          <div>
+            <h2>Impressoras cadastradas</h2>
+            <p class="text-muted">Visualize o status de cada impressora e teste a conexão com o Moonraker.</p>
+          </div>
         </div>
-        <div class="table-wrapper">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>URL do Moonraker</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody id="printer-list">
-            </tbody>
-          </table>
-        </div>
+        <div class="printers-grid" id="printers-grid"></div>
       </section>
     </main>
   </div>
