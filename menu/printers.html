@@ -32,16 +32,16 @@
       <section class="card">
         <h2>Adicionar impressora</h2>
         <form id="printer-form" class="form-grid">
-          <div class="form-control">
+          <div class="form-group">
             <label for="printer-name">Printer name</label>
-            <input id="printer-name" type="text" placeholder="Voron Trident" required>
+            <input id="printer-name" name="printer-name" type="text" placeholder="Voron Trident" required>
           </div>
-          <div class="form-control">
+          <div class="form-group">
             <label for="printer-url">Moonraker URL</label>
-            <input id="printer-url" type="text" placeholder="http://192.168.0.120:7125" required>
+            <input id="printer-url" name="printer-url" type="text" placeholder="http://192.168.0.120:7125" required>
           </div>
           <div class="form-actions">
-            <button type="submit" class="btn">Adicionar impressora</button>
+            <button type="submit" class="btn btn-primary">Adicionar impressora</button>
           </div>
         </form>
       </section>
@@ -51,7 +51,7 @@
           <h2>Impressoras cadastradas</h2>
         </div>
         <div class="table-wrapper">
-          <table>
+          <table class="table">
             <thead>
               <tr>
                 <th>Nome</th>
