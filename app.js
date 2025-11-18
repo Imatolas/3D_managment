@@ -1,11 +1,15 @@
-const printers = [
-  { name: "Bambu X1", type: "CoreXY", status: "Printing", job: "Drone Arm", progress: 62 },
-  { name: "Voron 2.4", type: "CoreXY", status: "Online", job: "-", progress: 30 },
-  { name: "Prusa MK4", type: "Bedslinger", status: "Idle", job: "Spool Bracket", progress: 48 },
-  { name: "Form 3", type: "SLA", status: "Paused", job: "Dental Model", progress: 52 },
-  { name: "Anycubic Kobra", type: "Bedslinger", status: "Offline", job: "-", progress: 0 },
-  { name: "Bambu P1P", type: "CoreXY", status: "Printing", job: "Case Raspberry", progress: 74 },
+const PRINTERS_STORAGE_KEY = "moonrakerPrinters";
+
+const defaultPrinters = [
+  { name: "Bambu X1", type: "CoreXY", status: "Printing", job: "Drone Arm", progress: 62, url: "" },
+  { name: "Voron 2.4", type: "CoreXY", status: "Online", job: "-", progress: 30, url: "" },
+  { name: "Prusa MK4", type: "Bedslinger", status: "Idle", job: "Spool Bracket", progress: 48, url: "" },
+  { name: "Form 3", type: "SLA", status: "Paused", job: "Dental Model", progress: 52, url: "" },
+  { name: "Anycubic Kobra", type: "Bedslinger", status: "Offline", job: "-", progress: 0, url: "" },
+  { name: "Bambu P1P", type: "CoreXY", status: "Printing", job: "Case Raspberry", progress: 74, url: "" },
 ];
+
+let printers = [];
 
 const jobs = [
   { code: "A1", name: "Case Raspberry", printer: "Bambu X1", material: "PETG", status: "Printing", remaining: "01h 25m" },
@@ -50,11 +54,119 @@ const statusToClass = {
   Offline: "danger",
   Idle: "queue",
   Paused: "warning",
+  Desconhecido: "queue",
 };
 
 function createBadge(status) {
   const cls = statusToClass[status] || "info";
   return `<span class="badge ${cls}">${status}</span>`;
+}
+
+function loadPrinters() {
+  const stored = localStorage.getItem(PRINTERS_STORAGE_KEY);
+  if (!stored) {
+    localStorage.setItem(PRINTERS_STORAGE_KEY, JSON.stringify(defaultPrinters));
+    return [...defaultPrinters];
+  }
+
+  try {
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [...defaultPrinters];
+  } catch (error) {
+    console.error("Erro ao ler impressoras salvas", error);
+    return [...defaultPrinters];
+  }
+}
+
+function savePrinters(list) {
+  localStorage.setItem(PRINTERS_STORAGE_KEY, JSON.stringify(list));
+}
+
+function normalizeUrl(url) {
+  return url.trim().replace(/\/$/, "");
+}
+
+function addPrinter(name, url) {
+  const trimmedName = name.trim();
+  const trimmedUrl = normalizeUrl(url);
+
+  if (!trimmedName || !trimmedUrl) return;
+
+  printers.push({
+    name: trimmedName,
+    url: trimmedUrl,
+    status: "Desconhecido",
+    type: "Moonraker",
+    job: "-",
+    progress: 0,
+  });
+  savePrinters(printers);
+  renderPrintersTable();
+  renderPrinters();
+}
+
+function removePrinter(index) {
+  printers.splice(index, 1);
+  savePrinters(printers);
+  renderPrintersTable();
+  renderPrinters();
+}
+
+async function testarConexaoMoonraker(printer, index, statusCell) {
+  const url = normalizeUrl(printer.url || "");
+  if (!url) {
+    statusCell.textContent = "URL inválida";
+    return;
+  }
+
+  statusCell.textContent = "Testando...";
+  try {
+    const response = await fetch(`${url}/printer/info`);
+    const status = response.ok ? "Online" : "Offline";
+    printers[index].status = status;
+    statusCell.textContent = status;
+  } catch (error) {
+    printers[index].status = "Offline";
+    statusCell.textContent = "Offline";
+  }
+  savePrinters(printers);
+  renderPrinters();
+}
+
+function renderPrintersTable() {
+  const tbody = document.getElementById("printer-list");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  printers.forEach((printer, index) => {
+    const row = document.createElement("tr");
+
+    const nameTd = document.createElement("td");
+    nameTd.textContent = printer.name;
+
+    const urlTd = document.createElement("td");
+    urlTd.textContent = printer.url || "-";
+
+    const statusTd = document.createElement("td");
+    statusTd.textContent = printer.status || "Desconhecido";
+
+    const actionsTd = document.createElement("td");
+    actionsTd.className = "actions";
+
+    const testButton = document.createElement("button");
+    testButton.textContent = "Testar";
+    testButton.className = "btn ghost";
+    testButton.addEventListener("click", () => testarConexaoMoonraker(printer, index, statusTd));
+
+    const removeButton = document.createElement("button");
+    removeButton.textContent = "Remover";
+    removeButton.className = "btn danger";
+    removeButton.addEventListener("click", () => removePrinter(index));
+
+    actionsTd.append(testButton, removeButton);
+    row.append(nameTd, urlTd, statusTd, actionsTd);
+    tbody.appendChild(row);
+  });
 }
 
 function renderPrints() {
@@ -81,23 +193,27 @@ function renderPrinters() {
   if (!container) return;
   container.innerHTML = printers
     .slice(0, 4)
-    .map(
-      (p) => `
+    .map((p) => {
+      const progress = Number.isFinite(p.progress) ? p.progress : 0;
+      const type = p.type || "N/A";
+      const job = p.job || "-";
+      const status = p.status || "Desconhecido";
+      return `
       <article class="printer-card">
         <header>
           <h3>${p.name}</h3>
-          ${createBadge(p.status)}
+          ${createBadge(status)}
         </header>
-        <p>Tipo: ${p.type}</p>
-        <p>Job atual: ${p.job}</p>
-        <div class="meter"><span style="width:${p.progress}%"></span></div>
+        <p>Tipo: ${type}</p>
+        <p>Job atual: ${job}</p>
+        <div class="meter"><span style="width:${progress}%"></span></div>
         <div class="flex-row">
           <button class="btn">View</button>
           <button class="btn ghost">Open in Klipper</button>
         </div>
       </article>
-    `
-    )
+    `;
+    })
     .join("");
 }
 
@@ -147,7 +263,7 @@ function renderTimeline() {
   if (list) {
     list.innerHTML = printers
       .slice(0, 4)
-      .map((p) => `<div class="item"><span>${p.name}</span>${createBadge(p.status)}</div>`)
+      .map((p) => `<div class="item"><span>${p.name}</span>${createBadge(p.status || "Desconhecido")}</div>`)
       .join("");
   }
 
@@ -225,7 +341,24 @@ function renderStats() {
   }
 }
 
+function bindForm() {
+  const form = document.getElementById("printer-form");
+  if (!form) return;
+  const nameInput = document.getElementById("printer-name");
+  const urlInput = document.getElementById("printer-url");
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    addPrinter(nameInput.value, urlInput.value);
+    form.reset();
+    nameInput.focus();
+  });
+}
+
 function init() {
+  printers = loadPrinters();
+  bindForm();
+  renderPrintersTable();
   renderOverview();
   renderPrints();
   renderPrinters();
