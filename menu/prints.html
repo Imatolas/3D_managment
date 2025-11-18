@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Print Management - Prints</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">3D Print Management</div>
+      <nav class="nav">
+        <a href="/index.html">Overview</a>
+        <a href="/menu/timeline.html">Timeline</a>
+        <a class="active" href="/menu/prints.html">Prints</a>
+        <a href="/menu/printers.html">Printers</a>
+        <a href="/menu/materials.html">Materials</a>
+        <a href="/menu/statistics.html">Statistics</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="header">
+        <div>
+          <p class="badge info">Fila</p>
+          <h1>Prints</h1>
+          <p style="color: var(--muted);">Lista de jobs de impressão em andamento, concluídos e na fila.</p>
+        </div>
+      </div>
+
+      <table class="table" aria-label="Lista de impressões">
+        <thead>
+          <tr>
+            <th>Thumb</th>
+            <th>Nome do job</th>
+            <th>Impressora</th>
+            <th>Material</th>
+            <th>Status</th>
+            <th>Tempo restante</th>
+          </tr>
+        </thead>
+        <tbody data-print-rows>
+          <tr>
+            <td><div class="thumbnail">A1</div></td>
+            <td>Case Raspberry</td>
+            <td>Bambu X1</td>
+            <td>PETG</td>
+            <td><span class="badge info">Printing</span></td>
+            <td>01h 25m</td>
+          </tr>
+          <tr>
+            <td><div class="thumbnail">B2</div></td>
+            <td>Gear Housing</td>
+            <td>Voron 2.4</td>
+            <td>ABS</td>
+            <td><span class="badge success">Completed</span></td>
+            <td>-</td>
+          </tr>
+          <tr>
+            <td><div class="thumbnail">C3</div></td>
+            <td>Spool Bracket</td>
+            <td>Prusa MK4</td>
+            <td>PLA</td>
+            <td><span class="badge queue">Queued</span></td>
+            <td>02h 10m</td>
+          </tr>
+          <tr>
+            <td><div class="thumbnail">D4</div></td>
+            <td>Dental Model</td>
+            <td>Form 3</td>
+            <td>Resin</td>
+            <td><span class="badge danger">Error</span></td>
+            <td>-</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

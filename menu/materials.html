@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Print Management - Materials</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">3D Print Management</div>
+      <nav class="nav">
+        <a href="/index.html">Overview</a>
+        <a href="/menu/timeline.html">Timeline</a>
+        <a href="/menu/prints.html">Prints</a>
+        <a href="/menu/printers.html">Printers</a>
+        <a class="active" href="/menu/materials.html">Materials</a>
+        <a href="/menu/statistics.html">Statistics</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="header">
+        <div>
+          <p class="badge info">Estoque</p>
+          <h1>Materials</h1>
+          <p style="color: var(--muted);">Disponibilidade de materiais e consumo recente.</p>
+        </div>
+      </div>
+
+      <section class="section">
+        <h2>Distribuição</h2>
+        <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:center;">
+          <div class="donut" data-donut>
+            <div class="donut-label">Estoque</div>
+          </div>
+          <div class="legend" data-material-legend>
+            <span><i style="background:#2563eb"></i>PLA</span>
+            <span><i style="background:#10b981"></i>PETG</span>
+            <span><i style="background:#f59e0b"></i>ABS</span>
+            <span><i style="background:#6b7280"></i>Nylon</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Materiais em estoque</h2>
+        <table class="table" aria-label="Materiais">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Tipo</th>
+              <th>Quantidade</th>
+              <th>Último uso</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody data-material-rows>
+            <tr>
+              <td>PLA Azul</td>
+              <td>PLA</td>
+              <td>3.4 kg</td>
+              <td>Hoje</td>
+              <td><button class="btn ghost">Buy More</button></td>
+            </tr>
+            <tr>
+              <td>PETG Preto</td>
+              <td>PETG</td>
+              <td>2.1 kg</td>
+              <td>Ontem</td>
+              <td><button class="btn ghost">Buy More</button></td>
+            </tr>
+            <tr>
+              <td>ABS Natural</td>
+              <td>ABS</td>
+              <td>1.5 kg</td>
+              <td>Há 3 dias</td>
+              <td><button class="btn ghost">Buy More</button></td>
+            </tr>
+            <tr>
+              <td>Nylon CF</td>
+              <td>Nylon</td>
+              <td>0.8 kg</td>
+              <td>Há 5 dias</td>
+              <td><button class="btn ghost">Buy More</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

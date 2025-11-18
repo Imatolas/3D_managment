@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Print Management - Timeline</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">3D Print Management</div>
+      <nav class="nav">
+        <a href="/index.html">Overview</a>
+        <a class="active" href="/menu/timeline.html">Timeline</a>
+        <a href="/menu/prints.html">Prints</a>
+        <a href="/menu/printers.html">Printers</a>
+        <a href="/menu/materials.html">Materials</a>
+        <a href="/menu/statistics.html">Statistics</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="header">
+        <div>
+          <p class="badge info">Agenda</p>
+          <h1>Timeline</h1>
+          <p style="color: var(--muted);">Visualização dos jobs nas impressoras ao longo do dia.</p>
+        </div>
+      </div>
+
+      <div class="timeline-wrapper">
+        <div class="printer-list" data-printer-status>
+          <div class="item"><span>Form 3</span><span class="badge success">Online</span></div>
+          <div class="item"><span>Bambu X1</span><span class="badge info">Printing</span></div>
+          <div class="item"><span>Prusa MK4</span><span class="badge queue">Idle</span></div>
+          <div class="item"><span>Voron 2.4</span><span class="badge warning">Paused</span></div>
+        </div>
+
+        <div class="timeline-area" data-timeline>
+          <div class="timeline-scale">
+            <span>8 AM</span>
+            <span>12 PM</span>
+            <span>4 PM</span>
+            <span>8 PM</span>
+            <span>12 AM</span>
+          </div>
+          <div class="now-line"></div>
+          <div class="track" data-printer="Form 3"></div>
+          <div class="track" data-printer="Bambu X1"></div>
+          <div class="track" data-printer="Prusa MK4"></div>
+          <div class="track" data-printer="Voron 2.4"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

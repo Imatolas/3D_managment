@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Print Management - Statistics</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">3D Print Management</div>
+      <nav class="nav">
+        <a href="/index.html">Overview</a>
+        <a href="/menu/timeline.html">Timeline</a>
+        <a href="/menu/prints.html">Prints</a>
+        <a href="/menu/printers.html">Printers</a>
+        <a href="/menu/materials.html">Materials</a>
+        <a class="active" href="/menu/statistics.html">Statistics</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="header">
+        <div>
+          <p class="badge info">Insights</p>
+          <h1>Statistics</h1>
+          <p style="color: var(--muted);">Indicadores gerais das impressões e materiais.</p>
+        </div>
+      </div>
+
+      <section class="card-grid">
+        <article class="card">
+          <h3>Jobs no mês</h3>
+          <div class="number" data-stat-jobs>74</div>
+          <small>Mês atual</small>
+        </article>
+        <article class="card">
+          <h3>Horas impressas por impressora</h3>
+          <div class="number" data-stat-hours>312 h</div>
+          <small>Soma de todas as máquinas</small>
+        </article>
+        <article class="card">
+          <h3>Taxa de falhas</h3>
+          <div class="number" data-stat-fails>6%</div>
+          <small>Falhas registradas</small>
+        </article>
+      </section>
+
+      <section class="section">
+        <h2>Produtividade por impressora</h2>
+        <div class="chart-bars" data-chart>
+          <div class="chart-row"><span style="width:110px;">Bambu X1</span><div class="bar" style="width:72%"></div><span>72 h</span></div>
+          <div class="chart-row"><span style="width:110px;">Voron 2.4</span><div class="bar" style="width:64%"></div><span>64 h</span></div>
+          <div class="chart-row"><span style="width:110px;">Prusa MK4</span><div class="bar" style="width:54%"></div><span>54 h</span></div>
+          <div class="chart-row"><span style="width:110px;">Form 3</span><div class="bar" style="width:44%"></div><span>44 h</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
