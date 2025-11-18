@@ -119,6 +119,19 @@ function normalizeUrl(url) {
   return url.trim().replace(/\/$/, "");
 }
 
+function setPreviewVisibility(imgEl, placeholderEl, previewUrl) {
+  if (!imgEl || !placeholderEl) return;
+  if (previewUrl) {
+    imgEl.src = previewUrl;
+    imgEl.style.display = "block";
+    placeholderEl.style.display = "none";
+  } else {
+    imgEl.removeAttribute("src");
+    imgEl.style.display = "none";
+    placeholderEl.style.display = "block";
+  }
+}
+
 function addPrinter(name, url) {
   const trimmedName = name.trim();
   const trimmedUrl = normalizeUrl(url);
@@ -174,6 +187,29 @@ async function fetchMoonrakerStatus(printer) {
   };
 }
 
+async function fetchMoonrakerThumbnail(printer, filename) {
+  const baseUrl = normalizeUrl(printer.url || "");
+  if (!baseUrl || !filename || filename === "N/A") return null;
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/server/files/metadata?filename=${encodeURIComponent(filename)}`
+    );
+    if (!response.ok) return null;
+
+    const metadata = await response.json();
+    const thumbnails = metadata?.result?.thumbnails;
+    if (Array.isArray(thumbnails) && thumbnails.length > 0) {
+      const thumbPath = thumbnails[0].relative_path;
+      return `${baseUrl}/server/files/gcodes/${thumbPath}`;
+    }
+  } catch (error) {
+    console.error("Erro ao buscar thumbnail do Moonraker", error);
+  }
+
+  return null;
+}
+
 function applyBadgeClass(badgeEl, status) {
   if (!badgeEl) return;
   const cls = badgeByStatus[status] || "badge--info";
@@ -195,8 +231,10 @@ function updatePrinterCardInfo(printer, elements) {
 async function testarConexaoMoonraker(printer, index, elements) {
   if (elements.statusEl) elements.statusEl.textContent = "Testando...";
 
+  let previewUrl = null;
   try {
     const data = await fetchMoonrakerStatus(printer);
+    previewUrl = await fetchMoonrakerThumbnail(printer, data.filename);
     printers[index] = {
       ...printer,
       status: data.state,
@@ -205,14 +243,17 @@ async function testarConexaoMoonraker(printer, index, elements) {
       remainingDuration: data.remaining,
       layerInfo: data.layerLabel,
       progress: data.progress ?? printer.progress ?? 0,
+      previewUrl,
     };
   } catch (error) {
     printers[index] = {
       ...printer,
       status: "Offline",
+      previewUrl: null,
     };
   }
 
+  setPreviewVisibility(elements.previewImg, elements.previewPlaceholder, previewUrl);
   savePrinters(printers);
   renderPrinters();
   renderPrintersCards();
@@ -221,6 +262,7 @@ async function testarConexaoMoonraker(printer, index, elements) {
 function createPrinterCard(printer, index) {
   const card = document.createElement("article");
   card.className = "printer-card card";
+  card.dataset.printerId = String(index);
 
   const name = document.createElement("h2");
   name.className = "printer-card-name";
@@ -232,7 +274,10 @@ function createPrinterCard(printer, index) {
 
   const imageBox = document.createElement("div");
   imageBox.className = "printer-card-image";
-  imageBox.innerHTML = "<span>Preview da impressora</span>";
+  imageBox.innerHTML = `
+    <img class="printer-preview-img" alt="Preview da impressora" />
+    <span class="printer-preview-placeholder">Preview da impressora</span>
+  `;
 
   const infoBox = document.createElement("div");
   infoBox.className = "printer-card-info";
@@ -274,9 +319,12 @@ function createPrinterCard(printer, index) {
     remainingEl: remainingRow.querySelector("[data-remaining-text]"),
     layerEl: layerRow.querySelector("[data-layer-text]"),
     badgeEl: badge,
+    previewImg: imageBox.querySelector(".printer-preview-img"),
+    previewPlaceholder: imageBox.querySelector(".printer-preview-placeholder"),
   };
 
   updatePrinterCardInfo(printer, elements);
+  setPreviewVisibility(elements.previewImg, elements.previewPlaceholder, printer.previewUrl);
 
   testButton.addEventListener("click", () => testarConexaoMoonraker(printer, index, elements));
   removeButton.addEventListener("click", () => removePrinter(index));
