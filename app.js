@@ -172,7 +172,6 @@ async function coletarJobsDasImpressoras() {
 
       const state = printStats.state;
       const filename = printStats.filename;
-      const progress = Number(displayStatus.progress);
       const elapsed = Number(printStats.print_duration) || 0;
 
       let totalTime = null;
@@ -192,6 +191,22 @@ async function coletarJobsDasImpressoras() {
           totalTime = Number.isFinite(Number(totalTime)) ? Number(totalTime) : null;
           slicerTime = Number.isFinite(Number(slicerTime)) ? Number(slicerTime) : null;
         }
+      }
+
+      const progressFromStats =
+        typeof printStats.progress === "number" ? printStats.progress : null;
+      const displayProgress =
+        typeof displayStatus.progress === "number"
+          ? displayStatus.progress
+          : Number(displayStatus.progress);
+
+      let progress = null;
+      if (Number.isFinite(progressFromStats)) {
+        progress = progressFromStats;
+      } else if (Number.isFinite(displayProgress)) {
+        progress = displayProgress;
+      } else if (totalTime && elapsed >= 0) {
+        progress = Math.min(elapsed / totalTime, 1);
       }
 
       const startTimestamp = elapsed > 0 ? nowSecs - elapsed : null;
@@ -702,6 +717,20 @@ function renderTimeline(jobs = []) {
   const endDayHour = 24;
   const secondsRange = (endDayHour - startDayHour) * 3600;
 
+  const nowElement = document.querySelector(".timeline-now");
+  if (nowElement) {
+    const now = new Date();
+    let nowSeconds =
+      (now.getHours() - startDayHour) * 3600 +
+      now.getMinutes() * 60 +
+      now.getSeconds();
+
+    nowSeconds = Math.max(0, Math.min(nowSeconds, secondsRange));
+    const nowPercent = (nowSeconds / secondsRange) * 100;
+    nowElement.style.left = `${nowPercent}%`;
+    nowElement.style.transform = "translateX(-50%)";
+  }
+
   printerIds.forEach((printerId) => {
     const printerJobs = jobsByPrinter[printerId];
     const sampleJob = printerJobs[0];
@@ -737,18 +766,43 @@ function renderTimeline(jobs = []) {
       jobBlock.className = "timeline-job-block";
       jobBlock.style.left = leftPercent + "%";
       jobBlock.style.width = widthPercent + "%";
-      jobBlock.innerHTML = `
+
+      const progressFill = document.createElement("div");
+      progressFill.className = "timeline-job-fill";
+
+      let fillPercent = 0;
+      if (job.state && job.state.toLowerCase() === "printing") {
+        if (typeof job.progress === "number") {
+          fillPercent = Math.max(0, Math.min(job.progress, 1)) * 100;
+        } else if (job.totalTime && job.elapsed >= 0) {
+          fillPercent = Math.max(0, Math.min(job.elapsed / job.totalTime, 1)) * 100;
+        }
+      } else if (
+        job.state &&
+        ["complete", "completed"].includes(job.state.toLowerCase())
+      ) {
+        fillPercent = 100;
+      }
+
+      progressFill.style.width = fillPercent.toFixed(1) + "%";
+
+      const content = document.createElement("div");
+      content.className = "timeline-job-content";
+      content.innerHTML = `
         <div class="timeline-job-title">
           ${job.filename || "Job atual"}
         </div>
         <div class="timeline-job-subtitle">
           ${(job.material || "Material desconhecido")} · ${
-        job.startTimestamp && job.endTimestamp
-          ? formatHour(job.startTimestamp) + " - " + formatHour(job.endTimestamp)
-          : "Horário não definido"
-      }
+            job.startTimestamp && job.endTimestamp
+              ? formatHour(job.startTimestamp) + " - " + formatHour(job.endTimestamp)
+              : "Horário não definido"
+          }
         </div>
       `;
+
+      jobBlock.appendChild(progressFill);
+      jobBlock.appendChild(content);
       track.appendChild(jobBlock);
     });
 
