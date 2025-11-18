@@ -22,25 +22,157 @@
 
     <main class="content">
       <section id="overview" class="panel">
+        <div class="panel__header">
+          <h2>Overview</h2>
+          <p>Resumo geral das impressoras, trabalhos recentes e status do laboratório.</p>
+        </div>
         <h2>Overview</h2>
         <p>Resumo geral das impressoras, trabalhos recentes e status do laboratório.</p>
         <div class="grid">
           <div class="card">
             <p class="card__label">Impressões em andamento</p>
             <p class="card__value">3</p>
+
+            <p class="card__note">Atualizado há 5 minutos</p>
+
           </div>
           <div class="card">
             <p class="card__label">Fila de trabalhos</p>
             <p class="card__value">8</p>
+
+            <p class="card__note">2 urgentes | 3 novos</p>
+
           </div>
           <div class="card">
             <p class="card__label">Tempo médio</p>
             <p class="card__value">5h 10m</p>
+
+            <p class="card__note">Baseado nos últimos 20 trabalhos</p>
           </div>
         </div>
       </section>
 
       <section id="timeline" class="panel">
+        <div class="panel__header">
+          <h2>Linha do tempo</h2>
+          <p>Calendário em estilo kanban com eventos por hora. Organize e inclua novas impressões.</p>
+          <div class="panel__actions">
+            <button id="add-print" class="btn">Adicionar impressão</button>
+          </div>
+        </div>
+        <div class="kanban">
+          <div class="kanban__column" data-day="2024-08-01">
+            <div class="kanban__column-header">
+              <p class="kanban__day">Qui, 1 Ago</p>
+              <p class="kanban__subtitle">08:00 — 18:00</p>
+            </div>
+            <div class="kanban__hours">
+              <div class="kanban__slot" data-hour="08:00">
+                <p class="kanban__hour">08:00</p>
+                <div class="kanban__card">
+                  <p class="kanban__title">Suporte de câmera</p>
+                  <p class="kanban__meta">Duração: 3h | Prioridade: Alta</p>
+                </div>
+              </div>
+              <div class="kanban__slot" data-hour="11:00">
+                <p class="kanban__hour">11:00</p>
+                <div class="kanban__card kanban__card--muted">
+                  <p class="kanban__title">Intervalo / Setup</p>
+                  <p class="kanban__meta">Janela livre</p>
+                </div>
+              </div>
+              <div class="kanban__slot" data-hour="13:00">
+                <p class="kanban__hour">13:00</p>
+                <div class="kanban__card">
+                  <p class="kanban__title">Case Raspberry Pi</p>
+                  <p class="kanban__meta">Duração: 2h | Prioridade: Média</p>
+                </div>
+              </div>
+              <div class="kanban__slot" data-hour="16:00">
+                <p class="kanban__hour">16:00</p>
+                <div class="kanban__card">
+                  <p class="kanban__title">Protótipo ASA</p>
+                  <p class="kanban__meta">Duração: 4h | Prioridade: Alta</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kanban__column" data-day="2024-08-02">
+            <div class="kanban__column-header">
+              <p class="kanban__day">Sex, 2 Ago</p>
+              <p class="kanban__subtitle">08:00 — 18:00</p>
+            </div>
+            <div class="kanban__hours">
+              <div class="kanban__slot" data-hour="09:00">
+                <p class="kanban__hour">09:00</p>
+                <div class="kanban__card kanban__card--muted">
+                  <p class="kanban__title">Janela livre</p>
+                  <p class="kanban__meta">Disponível</p>
+                </div>
+              </div>
+              <div class="kanban__slot" data-hour="10:00">
+                <p class="kanban__hour">10:00</p>
+                <div class="kanban__card">
+                  <p class="kanban__title">Engrenagem PLA</p>
+                  <p class="kanban__meta">Duração: 1h | Prioridade: Baixa</p>
+                </div>
+              </div>
+              <div class="kanban__slot" data-hour="14:00">
+                <p class="kanban__hour">14:00</p>
+                <div class="kanban__card">
+                  <p class="kanban__title">Suporte de ventilação</p>
+                  <p class="kanban__meta">Duração: 3h | Prioridade: Média</p>
+                </div>
+              </div>
+              <div class="kanban__slot" data-hour="17:00">
+                <p class="kanban__hour">17:00</p>
+                <div class="kanban__card kanban__card--muted">
+                  <p class="kanban__title">Janela livre</p>
+                  <p class="kanban__meta">Buffer</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="impressions" class="panel">
+        <div class="panel__header">
+          <h2>Impressões</h2>
+          <p>Inventário de impressões com detalhes de material, quantidade e tempo estimado.</p>
+        </div>
+        <div class="table table--impressions">
+          <div class="table__header">
+            <span>Item</span><span>Nome</span><span>Material</span><span>Qtd.</span><span>Tempo</span>
+          </div>
+          <div class="table__row">
+            <div class="table__thumb" aria-hidden="true"></div>
+            <span>Suporte de câmera</span>
+            <span>PLA</span>
+            <span>3</span>
+            <span>3h 00m</span>
+          </div>
+          <div class="table__row">
+            <div class="table__thumb table__thumb--green" aria-hidden="true"></div>
+            <span>Case Raspberry Pi</span>
+            <span>PETG</span>
+            <span>2</span>
+            <span>2h 30m</span>
+          </div>
+          <div class="table__row">
+            <div class="table__thumb table__thumb--orange" aria-hidden="true"></div>
+            <span>Engrenagem PLA</span>
+            <span>PLA</span>
+            <span>6</span>
+            <span>1h 15m</span>
+          </div>
+          <div class="table__row">
+            <div class="table__thumb table__thumb--purple" aria-hidden="true"></div>
+            <span>Suporte de ventilação</span>
+            <span>ABS</span>
+            <span>1</span>
+            <span>3h 10m</span>
         <h2>Linha do tempo</h2>
         <p>Eventos recentes e mudanças de estado.</p>
         <ul class="timeline">
@@ -70,6 +202,41 @@
       </section>
 
       <section id="printers" class="panel">
+        <div class="panel__header">
+          <h2>Printers</h2>
+          <p>Monitoramento das impressoras com itens, quantidade e horários.</p>
+        </div>
+        <div class="table table--printers">
+          <div class="table__header">
+            <span>Impressora</span><span>Item</span><span>Qtd.</span><span>Início</span><span>Fim</span>
+          </div>
+          <div class="table__row">
+            <span>Prusa MK3</span>
+            <span>Case Raspberry Pi</span>
+            <span>2</span>
+            <span>10:05</span>
+            <span>12:35</span>
+          </div>
+          <div class="table__row">
+            <span>Ender 3</span>
+            <span>Engrenagem PLA</span>
+            <span>6</span>
+            <span>09:20</span>
+            <span>10:35</span>
+          </div>
+          <div class="table__row">
+            <span>Bambu X1C</span>
+            <span>Suporte de câmera</span>
+            <span>3</span>
+            <span>08:00</span>
+            <span>11:00</span>
+          </div>
+          <div class="table__row">
+            <span>Voron 2.4</span>
+            <span>Protótipo ASA</span>
+            <span>1</span>
+            <span>16:00</span>
+            <span>20:00</span>
         <h2>Printers</h2>
         <p>Status individual das impressoras.</p>
         <div class="grid grid--wide">
@@ -87,13 +254,21 @@
             <p class="card__label">Impressora 3</p>
             <p class="card__value">Imprimindo</p>
             <p class="card__note">Material: PETG | 35%</p>
+
           </div>
         </div>
       </section>
 
       <section id="materials" class="panel">
+
+        <div class="panel__header">
+          <h2>Materiais</h2>
+          <p>Estoque atualizado por material com barras de capacidade.</p>
+        </div>
+
         <h2>Materiais</h2>
         <p>Controle de estoque e consumo.</p>
+
         <div class="materials">
           <div class="materials__item">
             <div>
@@ -122,28 +297,122 @@
               <span style="width: 35%"></span>
             </div>
           </div>
+
+          <div class="materials__item">
+            <div>
+              <h3>Nylon</h3>
+              <p>Bobinas disponíveis: 1</p>
+            </div>
+            <div class="meter">
+              <span style="width: 20%"></span>
+            </div>
+          </div>
+
         </div>
       </section>
 
       <section id="stats" class="panel">
+
+        <div class="panel__header">
+          <h2>Estatísticas</h2>
+          <p>Métricas de consumo de material e tempo total por item.</p>
+        </div>
+        <div class="stats stats--grid">
+          <div>
+            <p class="stats__value">12.4 kg</p>
+            <p class="stats__label">Material consumido (mês)</p>
+          </div>
+          <div>
+            <p class="stats__value">94%</p>
+            <p class="stats__label">Taxa de sucesso das impressões</p>
+
         <h2>Estatísticas</h2>
         <p>Métricas rápidas do laboratório.</p>
         <div class="stats">
           <div>
             <p class="stats__value">94%</p>
             <p class="stats__label">Taxa de sucesso</p>
+
           </div>
           <div>
             <p class="stats__value">28</p>
             <p class="stats__label">Peças concluídas (semana)</p>
           </div>
+
+        </div>
+        <div class="table table--materials-usage">
+          <div class="table__header">
+            <span>Material</span><span>Consumo</span><span>Tempo total</span>
+          </div>
+          <div class="table__row">
+            <span>PLA</span>
+            <span>6.3 kg</span>
+            <span>42h 00m</span>
+          </div>
+          <div class="table__row">
+            <span>PETG</span>
+            <span>3.1 kg</span>
+            <span>24h 40m</span>
+          </div>
+          <div class="table__row">
+            <span>ABS</span>
+            <span>2.1 kg</span>
+            <span>18h 10m</span>
+          </div>
+          <div class="table__row">
+            <span>Nylon</span>
+            <span>0.9 kg</span>
+            <span>11h 30m</span>
+
           <div>
             <p class="stats__value">12.4 kg</p>
             <p class="stats__label">Material consumido (mês)</p>
+
           </div>
         </div>
       </section>
     </main>
+  </div>
+
+
+  <div class="modal" id="modal" aria-hidden="true" role="dialog" aria-labelledby="modal-title">
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__content">
+      <div class="modal__header">
+        <h3 id="modal-title">Adicionar impressão</h3>
+        <button class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <form id="print-form" class="modal__body">
+        <label class="field">
+          <span>Nome da impressão</span>
+          <input type="text" name="title" placeholder="Ex: Engrenagem PLA" required />
+        </label>
+        <label class="field">
+          <span>Data</span>
+          <input type="date" name="date" required />
+        </label>
+        <label class="field">
+          <span>Horário (hh:mm)</span>
+          <input type="time" name="time" step="3600" required />
+        </label>
+        <label class="field">
+          <span>Tempo da impressão</span>
+          <input type="text" name="duration" placeholder="Ex: 3h 00m" required />
+        </label>
+        <label class="field">
+          <span>Prioridade</span>
+          <select name="priority" required>
+            <option value="Alta">Alta</option>
+            <option value="Média">Média</option>
+            <option value="Baixa">Baixa</option>
+          </select>
+        </label>
+        <div class="modal__footer">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn">Adicionar</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script src="script.js"></script>
