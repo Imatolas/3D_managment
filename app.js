@@ -1,3 +1,4 @@
+const STORAGE_KEY_PRINTERS = "pm_printers";
 const PRINTERS_STORAGE_KEY = "moonrakerPrinters";
 
 const defaultPrinters = [
@@ -114,22 +115,32 @@ function estimateRemaining(printDuration, progress) {
 }
 
 function loadPrinters() {
-  const stored = localStorage.getItem(PRINTERS_STORAGE_KEY);
-  if (!stored) {
-    localStorage.setItem(PRINTERS_STORAGE_KEY, JSON.stringify(defaultPrinters));
-    return [...defaultPrinters];
+  const parseList = (raw) => {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch (error) {
+      console.error("Erro ao ler impressoras salvas", error);
+      return null;
+    }
+  };
+
+  const stored = parseList(localStorage.getItem(STORAGE_KEY_PRINTERS));
+  if (stored) return stored;
+
+  const legacy = parseList(localStorage.getItem(PRINTERS_STORAGE_KEY));
+  if (legacy) {
+    savePrinters(legacy);
+    return legacy;
   }
 
-  try {
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : [...defaultPrinters];
-  } catch (error) {
-    console.error("Erro ao ler impressoras salvas", error);
-    return [...defaultPrinters];
-  }
+  savePrinters(defaultPrinters);
+  return [...defaultPrinters];
 }
 
 function savePrinters(list) {
+  localStorage.setItem(STORAGE_KEY_PRINTERS, JSON.stringify(list));
   localStorage.setItem(PRINTERS_STORAGE_KEY, JSON.stringify(list));
 }
 
@@ -140,6 +151,9 @@ function normalizeUrl(url) {
 async function coletarJobsDasImpressoras() {
   const storedPrinters = loadPrinters();
   const jobs = [];
+  const nowSecs = Date.now() / 1000;
+  const startDayHour = 8;
+  const endDayHour = 24;
 
   for (const [index, printer] of storedPrinters.entries()) {
     const baseUrl = normalizeUrl(printer.url || "");
@@ -180,8 +194,7 @@ async function coletarJobsDasImpressoras() {
         }
       }
 
-      const now = Date.now() / 1000;
-      const startTimestamp = elapsed > 0 ? now - elapsed : null;
+      const startTimestamp = elapsed > 0 ? nowSecs - elapsed : null;
       const duration = totalTime || slicerTime || null;
       const endTimestamp = startTimestamp && duration ? startTimestamp + duration : null;
 
@@ -550,13 +563,18 @@ function renderPrints(jobs = []) {
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  jobs.forEach((job, index) => {
-    if (!job.state || job.state === "standby" || job.state === "idle") return;
+  let index = 0;
+  jobs.forEach((job) => {
+    if (!job.state || job.state === "standby" || job.state === "idle") {
+      return;
+    }
 
     const tr = document.createElement("tr");
+    const stateClass = (job.state || "unknown").toLowerCase();
 
     const thumbCell = document.createElement("td");
-    thumbCell.innerHTML = `<div class="thumbnail">${String.fromCharCode(65 + index)}${index + 1}</div>`;
+    index += 1;
+    thumbCell.innerHTML = `<div class="thumb-badge">J${index}</div>`;
 
     const nameCell = document.createElement("td");
     nameCell.textContent = job.filename || "Job atual";
@@ -568,17 +586,19 @@ function renderPrints(jobs = []) {
     materialCell.textContent = job.material || "-";
 
     const statusCell = document.createElement("td");
-    const stateText = job.state || "Unknown";
-    const stateLabel = stateText.charAt(0).toUpperCase() + stateText.slice(1);
-    statusCell.innerHTML = createBadge(stateLabel);
+    statusCell.innerHTML = `
+      <span class="status-pill status-pill--${stateClass}">
+        ${job.state || "unknown"}
+      </span>
+    `;
 
     const remainingCell = document.createElement("td");
-    let remaining = "N/A";
-    if (job.totalTime && Number.isFinite(job.elapsed)) {
-      const remSeconds = Math.max(job.totalTime - job.elapsed, 0);
-      remaining = formatDuration(remSeconds);
+    let remainingText = "N/A";
+    if (job.totalTime && job.elapsed >= 0) {
+      const remainingSeconds = Math.max(job.totalTime - job.elapsed, 0);
+      remainingText = formatDuration(remainingSeconds);
     }
-    remainingCell.textContent = remaining;
+    remainingCell.textContent = remainingText;
 
     tr.appendChild(thumbCell);
     tr.appendChild(nameCell);
@@ -678,22 +698,22 @@ function renderTimeline(jobs = []) {
   });
 
   const printerIds = Object.keys(jobsByPrinter);
-
   const startDayHour = 8;
   const endDayHour = 24;
-  const secondsPerDay = (endDayHour - startDayHour) * 3600;
+  const secondsRange = (endDayHour - startDayHour) * 3600;
 
   printerIds.forEach((printerId) => {
     const printerJobs = jobsByPrinter[printerId];
     const sampleJob = printerJobs[0];
+    const stateClass = (sampleJob.state || "unknown").toLowerCase();
 
     const printerItem = document.createElement("div");
-    printerItem.className = "item timeline-printer-item";
-    const stateLabel = (sampleJob.state || "unknown").toString();
-    const displayState = stateLabel.charAt(0).toUpperCase() + stateLabel.slice(1);
+    printerItem.className = "timeline-printer-item";
     printerItem.innerHTML = `
-      <span>${sampleJob.printerName}</span>
-      ${createBadge(displayState)}
+      <div class="timeline-printer-name">${sampleJob.printerName}</div>
+      <span class="status-pill status-pill--${stateClass}">
+        ${sampleJob.state || "unknown"}
+      </span>
     `;
     printersContainer.appendChild(printerItem);
 
@@ -703,28 +723,31 @@ function renderTimeline(jobs = []) {
     printerJobs.forEach((job) => {
       if (!job.startTimestamp || !job.endTimestamp) return;
 
-      const date = new Date(job.startTimestamp * 1000);
+      const startDate = new Date(job.startTimestamp * 1000);
       const startSeconds =
-        (date.getHours() - startDayHour) * 3600 + date.getMinutes() * 60;
-      if (startSeconds < 0 || startSeconds > secondsPerDay) return;
+        (startDate.getHours() - startDayHour) * 3600 + startDate.getMinutes() * 60;
+
+      if (startSeconds < 0 || startSeconds > secondsRange) return;
 
       const durationSeconds = job.endTimestamp - job.startTimestamp;
-      const leftPercent = (startSeconds / secondsPerDay) * 100;
-      const widthPercent = Math.max((durationSeconds / secondsPerDay) * 100, 5);
+      const leftPercent = (startSeconds / secondsRange) * 100;
+      const widthPercent = Math.max((durationSeconds / secondsRange) * 100, 5);
 
       const jobBlock = document.createElement("div");
-      jobBlock.className = "job-block";
-      jobBlock.style.left = `${leftPercent}%`;
-      jobBlock.style.width = `${widthPercent}%`;
+      jobBlock.className = "timeline-job-block";
+      jobBlock.style.left = leftPercent + "%";
+      jobBlock.style.width = widthPercent + "%";
       jobBlock.innerHTML = `
-        <strong>${job.filename || "Job atual"}</strong>
-        <small>
-          ${(job.material || "").toString()} ${
-            job.startTimestamp && job.endTimestamp
-              ? " · " + formatHour(job.startTimestamp) + " - " + formatHour(job.endTimestamp)
-              : ""
-          }
-        </small>
+        <div class="timeline-job-title">
+          ${job.filename || "Job atual"}
+        </div>
+        <div class="timeline-job-subtitle">
+          ${(job.material || "Material desconhecido")} · ${
+        job.startTimestamp && job.endTimestamp
+          ? formatHour(job.startTimestamp) + " - " + formatHour(job.endTimestamp)
+          : "Horário não definido"
+      }
+        </div>
       `;
       track.appendChild(jobBlock);
     });
