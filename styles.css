@@ -363,6 +363,12 @@ img {
   border: 1px solid #fca5a5;
 }
 
+.status-offline {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
 .status-standby {
   background: #f3f4f6;
   color: #374151;

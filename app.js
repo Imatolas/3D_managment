@@ -66,6 +66,8 @@ function applyStatusBadgeClasses(badgeEl, statusText) {
     badgeEl.classList.add("status-printing");
   } else if (state === "canceled" || state === "cancelled") {
     badgeEl.classList.add("status-canceled");
+  } else if (state === "offline") {
+    badgeEl.classList.add("status-offline");
   } else {
     badgeEl.classList.add("status-standby");
   }
@@ -171,16 +173,36 @@ async function coletarJobsDasImpressoras() {
   const nowSecs = Date.now() / 1000;
   let trackingUpdated = false;
 
+  const timelinePrinters = storedPrinters.map((printer, index) => ({
+    id: resolvePrinterId(printer, index),
+    name: printer.name || resolvePrinterId(printer, index),
+    moonrakerUrl: normalizeUrl(printer.url || ""),
+    isOnline: false,
+    state: (printer.status || "standby").toLowerCase(),
+    job: null,
+    jobs: [],
+  }));
+
   for (const [index, printer] of storedPrinters.entries()) {
-    const baseUrl = normalizeUrl(printer.url || "");
-    const printerId = resolvePrinterId(printer, index);
-    if (!baseUrl) continue;
+    const timelinePrinter = timelinePrinters[index];
+    const baseUrl = timelinePrinter.moonrakerUrl;
+    const printerId = timelinePrinter.id;
+
+    if (!baseUrl) {
+      timelinePrinter.state = "offline";
+      timelinePrinter.isOnline = false;
+      continue;
+    }
 
     try {
       const resp = await fetch(
         `${baseUrl}/printer/objects/query?print_stats&display_status`
       );
-      if (!resp.ok) continue;
+      if (!resp.ok) {
+        timelinePrinter.state = "offline";
+        timelinePrinter.isOnline = false;
+        continue;
+      }
       const data = await resp.json();
       const status = data.result?.status || {};
 
@@ -249,7 +271,7 @@ async function coletarJobsDasImpressoras() {
       const duration = totalTime || slicerTime || elapsed || null;
       const endTimestamp = startTimestamp && duration ? startTimestamp + duration : null;
 
-      jobs.push({
+      const job = {
         printerId,
         printerName: printer.name,
         state,
@@ -261,8 +283,19 @@ async function coletarJobsDasImpressoras() {
         startTimestamp,
         endTimestamp,
         progress: Number.isFinite(progress) ? progress : null,
-      });
+      };
+
+      jobs.push(job);
+
+      timelinePrinter.isOnline = true;
+      timelinePrinter.state = (state || "standby").toLowerCase();
+      timelinePrinter.job = job;
+      timelinePrinter.jobs = [job];
     } catch (error) {
+      timelinePrinter.isOnline = false;
+      timelinePrinter.state = "offline";
+      timelinePrinter.job = null;
+      timelinePrinter.jobs = [];
       console.error("Erro ao coletar job da impressora", printer.name, error);
     }
   }
@@ -271,7 +304,7 @@ async function coletarJobsDasImpressoras() {
     saveJobTracking(jobTracking);
   }
 
-  return jobs;
+  return { jobs, timelinePrinters };
 }
 
 function setPreviewVisibility(imgEl, placeholderEl, previewUrl) {
@@ -723,21 +756,13 @@ function renderMaterials() {
   }
 }
 
-function renderTimeline(jobs = []) {
+function renderTimeline(timelinePrinters = []) {
   const printersContainer = document.getElementById("timeline-printer-list");
   const tracksContainer = document.getElementById("timeline-tracks");
   if (!printersContainer || !tracksContainer) return;
 
   printersContainer.innerHTML = "";
   tracksContainer.innerHTML = "";
-
-  const jobsByPrinter = jobs.reduce((acc, job) => {
-    if (!acc[job.printerId]) {
-      acc[job.printerId] = [];
-    }
-    acc[job.printerId].push(job);
-    return acc;
-  }, {});
 
   const secondsRange = 24 * 3600;
 
@@ -755,21 +780,26 @@ function renderTimeline(jobs = []) {
     nowElement.style.transform = "translateX(-50%)";
   }
 
-  const storedPrinters = loadPrinters();
+  const dataToRender = timelinePrinters.length
+    ? timelinePrinters
+    : loadPrinters().map((printer, index) => ({
+        id: resolvePrinterId(printer, index),
+        name: printer.name || resolvePrinterId(printer, index),
+        state: (printer.status || "standby").toLowerCase(),
+        job: null,
+        jobs: [],
+      }));
 
-  storedPrinters.forEach((printer, index) => {
-    const printerId = resolvePrinterId(printer, index);
-    const printerJobs = jobsByPrinter[printerId] || [];
-    const name = printer.name || printerId;
+  dataToRender.forEach((printer) => {
+    const name = printer.name || printer.id;
     const printerItem = document.createElement("div");
     printerItem.className = "timeline-printer-item";
     const nameEl = document.createElement("div");
     nameEl.className = "timeline-printer-name";
     nameEl.textContent = name;
 
-    const badge = createStatusBadgeElement(
-      printerJobs[0]?.state || printer.status || "unknown"
-    );
+    const stateText = (printer.state || printer.status || "standby").toLowerCase();
+    const badge = createStatusBadgeElement(stateText);
 
     printerItem.append(nameEl, badge);
     printersContainer.appendChild(printerItem);
@@ -777,7 +807,13 @@ function renderTimeline(jobs = []) {
     const track = document.createElement("div");
     track.className = "timeline-track";
 
-    printerJobs.forEach((job) => {
+    const jobsToRender = Array.isArray(printer.jobs)
+      ? printer.jobs
+      : printer.job
+      ? [printer.job]
+      : [];
+
+    jobsToRender.forEach((job) => {
       if (!job.startTimestamp || !job.endTimestamp) return;
 
       const startDate = new Date(job.startTimestamp * 1000);
@@ -890,8 +926,8 @@ function renderStats() {
 
 function iniciarAtualizacaoTimelineEPrints() {
   async function atualizar() {
-    const jobs = await coletarJobsDasImpressoras();
-    renderTimeline(jobs);
+    const { jobs, timelinePrinters } = await coletarJobsDasImpressoras();
+    renderTimeline(timelinePrinters);
     renderPrints(jobs);
   }
 
