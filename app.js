@@ -1,5 +1,6 @@
 const STORAGE_KEY_PRINTERS = "pm_printers";
 const PRINTERS_STORAGE_KEY = "moonrakerPrinters";
+const STORAGE_KEY_JOB_TRACKING = "pm_job_tracking";
 
 const defaultPrinters = [
   { name: "Bambu X1", type: "CoreXY", status: "Printing", job: "Drone Arm", progress: 62, url: "" },
@@ -11,6 +12,19 @@ const defaultPrinters = [
 ];
 
 let printers = [];
+
+function loadJobTracking() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_JOB_TRACKING);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveJobTracking(data) {
+  localStorage.setItem(STORAGE_KEY_JOB_TRACKING, JSON.stringify(data));
+}
 
 const jobs = [
   { code: "A1", name: "Case Raspberry", printer: "Bambu X1", material: "PETG", status: "Printing", remaining: "01h 25m" },
@@ -146,15 +160,20 @@ function normalizeUrl(url) {
   return url.trim().replace(/\/$/, "");
 }
 
+function resolvePrinterId(printer, index) {
+  return printer.id || printer.url || printer.name || String(index);
+}
+
 async function coletarJobsDasImpressoras() {
   const storedPrinters = loadPrinters();
+  const jobTracking = loadJobTracking();
   const jobs = [];
   const nowSecs = Date.now() / 1000;
-  const startDayHour = 8;
-  const endDayHour = 24;
+  let trackingUpdated = false;
 
   for (const [index, printer] of storedPrinters.entries()) {
     const baseUrl = normalizeUrl(printer.url || "");
+    const printerId = resolvePrinterId(printer, index);
     if (!baseUrl) continue;
 
     try {
@@ -207,12 +226,31 @@ async function coletarJobsDasImpressoras() {
         progress = Math.min(elapsed / totalTime, 1);
       }
 
-      const startTimestamp = elapsed > 0 ? nowSecs - elapsed : null;
-      const duration = totalTime || slicerTime || null;
+      const jobKey = `${printerId}::${filename || "sem_nome"}`;
+      const lowerState = (state || "").toLowerCase();
+
+      let startTimestamp = null;
+      if (lowerState === "printing") {
+        if (jobTracking[jobKey]?.startTimestamp) {
+          startTimestamp = jobTracking[jobKey].startTimestamp;
+        } else {
+          startTimestamp = nowSecs - elapsed;
+          jobTracking[jobKey] = { startTimestamp };
+          trackingUpdated = true;
+        }
+      } else if (lowerState === "complete" || lowerState === "completed") {
+        if (jobTracking[jobKey]?.startTimestamp) {
+          startTimestamp = jobTracking[jobKey].startTimestamp;
+        } else if (Number.isFinite(totalTime)) {
+          startTimestamp = nowSecs - totalTime;
+        }
+      }
+
+      const duration = totalTime || slicerTime || elapsed || null;
       const endTimestamp = startTimestamp && duration ? startTimestamp + duration : null;
 
       jobs.push({
-        printerId: printer.id || printer.url || printer.name || String(index),
+        printerId,
         printerName: printer.name,
         state,
         filename,
@@ -227,6 +265,10 @@ async function coletarJobsDasImpressoras() {
     } catch (error) {
       console.error("Erro ao coletar job da impressora", printer.name, error);
     }
+  }
+
+  if (trackingUpdated) {
+    saveJobTracking(jobTracking);
   }
 
   return jobs;
@@ -689,47 +731,45 @@ function renderTimeline(jobs = []) {
   printersContainer.innerHTML = "";
   tracksContainer.innerHTML = "";
 
-  const jobsByPrinter = {};
-  jobs.forEach((job) => {
-    if (!jobsByPrinter[job.printerId]) {
-      jobsByPrinter[job.printerId] = [];
+  const jobsByPrinter = jobs.reduce((acc, job) => {
+    if (!acc[job.printerId]) {
+      acc[job.printerId] = [];
     }
-    jobsByPrinter[job.printerId].push(job);
-  });
+    acc[job.printerId].push(job);
+    return acc;
+  }, {});
 
-  const printerEntries = Object.keys(jobsByPrinter)
-    .map((printerId) => {
-      const printerJobs = jobsByPrinter[printerId];
-      const sampleJob = printerJobs[0] || {};
-      return { id: printerId, jobs: printerJobs, name: sampleJob.printerName || printerId };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const startDayHour = 8;
-  const endDayHour = 24;
-  const secondsRange = (endDayHour - startDayHour) * 3600;
+  const secondsRange = 24 * 3600;
 
   const nowElement = document.querySelector(".timeline-now");
   if (nowElement) {
-    const now = new Date();
-    let nowSeconds =
-      (now.getHours() - startDayHour) * 3600 +
-      now.getMinutes() * 60 +
-      now.getSeconds();
+    const calcularPosicaoNow = () => {
+      const now = new Date();
+      let secNow = now.getHours() * 3600 + now.getMinutes() * 60;
+      if (secNow < 0) secNow = 0;
+      if (secNow > secondsRange) secNow = secondsRange;
+      return (secNow / secondsRange) * 100;
+    };
 
-    nowSeconds = Math.max(0, Math.min(nowSeconds, secondsRange));
-    const nowPercent = (nowSeconds / secondsRange) * 100;
-    nowElement.style.left = `${nowPercent}%`;
+    nowElement.style.left = `${calcularPosicaoNow()}%`;
     nowElement.style.transform = "translateX(-50%)";
   }
 
-  printerEntries.forEach(({ id, jobs: printerJobs, name }) => {
+  const storedPrinters = loadPrinters();
+
+  storedPrinters.forEach((printer, index) => {
+    const printerId = resolvePrinterId(printer, index);
+    const printerJobs = jobsByPrinter[printerId] || [];
+    const name = printer.name || printerId;
     const printerItem = document.createElement("div");
     printerItem.className = "timeline-printer-item";
     const nameEl = document.createElement("div");
     nameEl.className = "timeline-printer-name";
     nameEl.textContent = name;
 
-    const badge = createStatusBadgeElement(printerJobs[0]?.state || "unknown");
+    const badge = createStatusBadgeElement(
+      printerJobs[0]?.state || printer.status || "unknown"
+    );
 
     printerItem.append(nameEl, badge);
     printersContainer.appendChild(printerItem);
@@ -741,8 +781,7 @@ function renderTimeline(jobs = []) {
       if (!job.startTimestamp || !job.endTimestamp) return;
 
       const startDate = new Date(job.startTimestamp * 1000);
-      const startSeconds =
-        (startDate.getHours() - startDayHour) * 3600 + startDate.getMinutes() * 60;
+      const startSeconds = startDate.getHours() * 3600 + startDate.getMinutes() * 60;
 
       if (startSeconds < 0 || startSeconds > secondsRange) return;
 
