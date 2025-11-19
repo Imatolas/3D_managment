@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS printers (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    moonraker_url VARCHAR(255),
+    status VARCHAR(50) NOT NULL DEFAULT 'offline',
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS filaments (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    color VARCHAR(50),
+    material VARCHAR(50),
+    price_per_kg DOUBLE PRECISION,
+    stock_grams DOUBLE PRECISION,
+    brand VARCHAR(120),
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS jobs (
+    id SERIAL PRIMARY KEY,
+    printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE CASCADE,
+    filename VARCHAR(255) NOT NULL,
+    material VARCHAR(80),
+    duration_estimated DOUBLE PRECISION,
+    duration_slicer DOUBLE PRECISION,
+    start_time TIMESTAMP WITHOUT TIME ZONE,
+    end_time TIMESTAMP WITHOUT TIME ZONE,
+    status VARCHAR(50) NOT NULL DEFAULT 'queued'
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+    id SERIAL PRIMARY KEY,
+    key VARCHAR(120) UNIQUE NOT NULL,
+    value TEXT
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+);
