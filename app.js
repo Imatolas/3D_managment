@@ -3,6 +3,7 @@ const PRINTERS_STORAGE_KEY = "moonrakerPrinters";
 const STORAGE_KEY_JOB_TRACKING = "pm_job_tracking";
 const TIMELINE_REFRESH_MS = 60000;
 const TIMELINE_SECONDS_RANGE = 24 * 3600;
+const TIMELINE_MIN_JOB_WIDTH = 12;
 
 const defaultPrinters = [
   { name: "Bambu X1", type: "CoreXY", status: "Printing", job: "Drone Arm", progress: 62, url: "" },
@@ -778,25 +779,48 @@ function renderMaterials() {
   }
 }
 
-function updateTimelineNowPosition() {
-  const nowElement = document.querySelector(".timeline-now");
+function getTimelineTrackMetrics() {
   const rowsContainer = document.getElementById("timeline-rows");
   const timelineCard = document.querySelector(".timeline-card");
-  if (!nowElement || !rowsContainer || !timelineCard) return;
+  if (!rowsContainer || !timelineCard) return null;
+
+  const firstTrack = rowsContainer.querySelector(".timeline-track");
+  if (!firstTrack) return null;
+
+  const trackRect = firstTrack.getBoundingClientRect();
+  const cardRect = timelineCard.getBoundingClientRect();
+  return {
+    width: trackRect.width,
+    offsetLeft: trackRect.left - cardRect.left,
+    timelineCard,
+    rowsContainer,
+  };
+}
+
+function updateNowIndicator() {
+  const nowLine = document.getElementById("timeline-now-line");
+  const nowLabel = document.getElementById("timeline-now-label");
+  if (!nowLine || !nowLabel) return;
+
+  const metrics = getTimelineTrackMetrics();
+  if (!metrics || !metrics.width) return;
 
   const now = new Date();
-  let secNow = now.getHours() * 3600 + now.getMinutes() * 60;
+  let secNow = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   secNow = Math.max(0, Math.min(TIMELINE_SECONDS_RANGE, secNow));
-  const leftPercent = (secNow / TIMELINE_SECONDS_RANGE) * 100;
+  const ratio = secNow / TIMELINE_SECONDS_RANGE;
+  const left = metrics.offsetLeft + ratio * metrics.width;
 
-  nowElement.style.left = `${leftPercent}%`;
-  nowElement.style.transform = "translateX(-50%)";
+  nowLine.style.left = `${left}px`;
+  nowLabel.style.left = `${left}px`;
 
-  const topOffset = rowsContainer.offsetTop;
+  const topOffset = metrics.rowsContainer.offsetTop;
   const bottomOffset =
-    timelineCard.offsetHeight - (rowsContainer.offsetTop + rowsContainer.offsetHeight);
-  nowElement.style.top = `${topOffset}px`;
-  nowElement.style.bottom = `${Math.max(24, bottomOffset)}px`;
+    metrics.timelineCard.offsetHeight -
+    (metrics.rowsContainer.offsetTop + metrics.rowsContainer.offsetHeight);
+  nowLine.style.top = `${topOffset}px`;
+  nowLine.style.bottom = `${Math.max(16, bottomOffset)}px`;
+  nowLabel.style.top = `${Math.max(0, topOffset - 24)}px`;
 }
 
 function renderTimelineSkeleton() {
@@ -830,25 +854,39 @@ function renderTimelineSkeleton() {
     rowsContainer.appendChild(row);
   });
 
-  updateTimelineNowPosition();
+  updateNowIndicator();
 }
 
-function createTimelineJobElement(job) {
+function setJobElementPosition(jobEl, trackWidth) {
+  if (!jobEl || !trackWidth) return;
+  const startRatio = parseFloat(jobEl.dataset.startRatio || "0");
+  const widthRatio = parseFloat(jobEl.dataset.widthRatio || "0");
+  if (!Number.isFinite(startRatio) || !Number.isFinite(widthRatio)) return;
+
+  const leftPx = startRatio * trackWidth;
+  const widthPx = Math.max(widthRatio * trackWidth, TIMELINE_MIN_JOB_WIDTH);
+  jobEl.style.left = `${leftPx}px`;
+  jobEl.style.width = `${widthPx}px`;
+}
+
+function createTimelineJobElement(job, trackWidth) {
   if (!job?.startTimestamp || !job?.endTimestamp) return null;
 
   const startDate = new Date(job.startTimestamp * 1000);
-  const startSeconds = startDate.getHours() * 3600 + startDate.getMinutes() * 60;
+  let startSeconds =
+    startDate.getHours() * 3600 + startDate.getMinutes() * 60 + startDate.getSeconds();
   if (startSeconds < 0 || startSeconds > TIMELINE_SECONDS_RANGE) return null;
 
-  const durationSeconds = job.endTimestamp - job.startTimestamp;
-  const leftPercent = (startSeconds / TIMELINE_SECONDS_RANGE) * 100;
-  const rawWidth = (durationSeconds / TIMELINE_SECONDS_RANGE) * 100;
-  const widthPercent = Math.min(100 - leftPercent, Math.max(rawWidth, 3));
+  const durationSeconds = Math.max(0, job.endTimestamp - job.startTimestamp);
+  const startRatio = startSeconds / TIMELINE_SECONDS_RANGE;
+  const durationRatio = Math.min(1, durationSeconds / TIMELINE_SECONDS_RANGE);
+  const widthRatio = Math.max(0, Math.min(1 - startRatio, durationRatio));
 
   const jobEl = document.createElement("div");
   jobEl.className = "timeline-job";
-  jobEl.style.left = `${leftPercent}%`;
-  jobEl.style.width = `${widthPercent}%`;
+  jobEl.dataset.startRatio = startRatio;
+  jobEl.dataset.widthRatio = widthRatio;
+  setJobElementPosition(jobEl, trackWidth);
   jobEl.textContent = job.filename || "Job atual";
   const label = job.startTimestamp && job.endTimestamp
     ? `${formatHour(job.startTimestamp)} - ${formatHour(job.endTimestamp)}`
@@ -868,6 +906,7 @@ function updateTimelineRow(printer, data, error) {
   const track = row.querySelector(".timeline-track");
   const nameEl = row.querySelector(".timeline-printer-item span");
   if (!track) return;
+  const trackWidth = track.getBoundingClientRect().width || track.offsetWidth;
 
   if (nameEl) {
     nameEl.textContent = printer.name || data.name || rowId;
@@ -886,10 +925,30 @@ function updateTimelineRow(printer, data, error) {
     : [];
 
   jobsToRender.forEach((job) => {
-    const jobEl = createTimelineJobElement(job);
+    const jobEl = createTimelineJobElement(job, trackWidth);
     if (jobEl) {
       track.appendChild(jobEl);
     }
+  });
+
+  if (!trackWidth) {
+    requestAnimationFrame(recalculateTimelineJobPositions);
+  }
+}
+
+function recalculateTimelineJobPositions() {
+  const rowsContainer = document.getElementById("timeline-rows");
+  if (!rowsContainer) return;
+
+  const rows = rowsContainer.querySelectorAll(".timeline-row");
+  rows.forEach((row) => {
+    const track = row.querySelector(".timeline-track");
+    if (!track) return;
+    const trackWidth = track.getBoundingClientRect().width || track.offsetWidth;
+    if (!trackWidth) return;
+    track.querySelectorAll(".timeline-job").forEach((jobEl) => {
+      setJobElementPosition(jobEl, trackWidth);
+    });
   });
 }
 
@@ -924,7 +983,7 @@ async function refreshTimelineData() {
     saveJobTracking(jobTracking);
   }
 
-  updateTimelineNowPosition();
+  updateNowIndicator();
 }
 
 function renderOverview() {
@@ -1054,6 +1113,11 @@ function init() {
   }
 }
 
-window.addEventListener("resize", updateTimelineNowPosition);
+window.addEventListener("resize", () => {
+  recalculateTimelineJobPositions();
+  updateNowIndicator();
+});
+
+setInterval(updateNowIndicator, 60000);
 
 document.addEventListener("DOMContentLoaded", init);
