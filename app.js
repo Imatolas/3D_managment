@@ -2,6 +2,7 @@ const STORAGE_KEY_PRINTERS = "pm_printers";
 const PRINTERS_STORAGE_KEY = "moonrakerPrinters";
 const STORAGE_KEY_JOB_TRACKING = "pm_job_tracking";
 const TIMELINE_REFRESH_MS = 60000;
+const TIMELINE_SECONDS_RANGE = 24 * 3600;
 
 const defaultPrinters = [
   { name: "Bambu X1", type: "CoreXY", status: "Printing", job: "Drone Arm", progress: 62, url: "" },
@@ -168,58 +169,45 @@ function resolvePrinterId(printer, index) {
   return printer.id || printer.url || printer.name || String(index);
 }
 
-async function coletarJobsDasImpressoras() {
-  const storedPrinters = loadPrinters();
-  const jobTracking = loadJobTracking();
-  const jobs = [];
-  const nowSecs = Date.now() / 1000;
-  let trackingUpdated = false;
-
-  const timelinePrinters = storedPrinters.map((printer, index) => ({
-    id: resolvePrinterId(printer, index),
-    name: printer.name || resolvePrinterId(printer, index),
-    moonrakerUrl: normalizeUrl(printer.url || ""),
+async function fetchTimelineDataForPrinter(printer, index, jobTracking, nowSecs) {
+  const printerId = resolvePrinterId(printer, index);
+  const baseUrl = normalizeUrl(printer.url || "");
+  const timelinePrinter = {
+    id: printerId,
+    name: printer.name || printerId,
+    moonrakerUrl: baseUrl,
     isOnline: false,
     state: (printer.status || "standby").toLowerCase(),
     job: null,
     jobs: [],
-  }));
+  };
 
-  for (const [index, printer] of storedPrinters.entries()) {
-    const timelinePrinter = timelinePrinters[index];
-    const baseUrl = timelinePrinter.moonrakerUrl;
-    const printerId = timelinePrinter.id;
+  if (!baseUrl) {
+    timelinePrinter.state = "offline";
+    return { printer, data: timelinePrinter, error: null, trackingUpdated: false };
+  }
 
-    if (!baseUrl) {
-      timelinePrinter.state = "offline";
-      timelinePrinter.isOnline = false;
-      continue;
-    }
+  try {
+    const resp = await fetch(
+      `${baseUrl}/printer/objects/query?print_stats&display_status`
+    );
+    if (!resp.ok) throw new Error("Falha ao consultar status da impressora");
 
-    try {
-      const resp = await fetch(
-        `${baseUrl}/printer/objects/query?print_stats&display_status`
-      );
-      if (!resp.ok) {
-        timelinePrinter.state = "offline";
-        timelinePrinter.isOnline = false;
-        continue;
-      }
-      const data = await resp.json();
-      const status = data.result?.status || {};
+    const payload = await resp.json();
+    const status = payload.result?.status || {};
+    const printStats = status.print_stats || {};
+    const displayStatus = status.display_status || {};
 
-      const printStats = status.print_stats || {};
-      const displayStatus = status.display_status || {};
+    const state = printStats.state;
+    const filename = printStats.filename;
+    const elapsed = Number(printStats.print_duration) || 0;
 
-      const state = printStats.state;
-      const filename = printStats.filename;
-      const elapsed = Number(printStats.print_duration) || 0;
+    let totalTime = null;
+    let slicerTime = null;
+    let material = null;
 
-      let totalTime = null;
-      let slicerTime = null;
-      let material = null;
-
-      if (filename) {
+    if (filename) {
+      try {
         const metaResp = await fetch(
           `${baseUrl}/server/files/metadata?filename=${encodeURIComponent(filename)}`
         );
@@ -232,75 +220,107 @@ async function coletarJobsDasImpressoras() {
           totalTime = Number.isFinite(Number(totalTime)) ? Number(totalTime) : null;
           slicerTime = Number.isFinite(Number(slicerTime)) ? Number(slicerTime) : null;
         }
+      } catch (metaError) {
+        console.error("Erro ao buscar metadata da impressora", printer.name, metaError);
       }
-
-      const progressFromStats =
-        typeof printStats.progress === "number" ? printStats.progress : null;
-      const displayProgress =
-        typeof displayStatus.progress === "number"
-          ? displayStatus.progress
-          : Number(displayStatus.progress);
-
-      let progress = null;
-      if (Number.isFinite(progressFromStats)) {
-        progress = progressFromStats;
-      } else if (Number.isFinite(displayProgress)) {
-        progress = displayProgress;
-      } else if (totalTime && elapsed >= 0) {
-        progress = Math.min(elapsed / totalTime, 1);
-      }
-
-      const jobKey = `${printerId}::${filename || "sem_nome"}`;
-      const lowerState = (state || "").toLowerCase();
-
-      let startTimestamp = null;
-      if (lowerState === "printing") {
-        if (jobTracking[jobKey]?.startTimestamp) {
-          startTimestamp = jobTracking[jobKey].startTimestamp;
-        } else {
-          startTimestamp = nowSecs - elapsed;
-          jobTracking[jobKey] = { startTimestamp };
-          trackingUpdated = true;
-        }
-      } else if (lowerState === "complete" || lowerState === "completed") {
-        if (jobTracking[jobKey]?.startTimestamp) {
-          startTimestamp = jobTracking[jobKey].startTimestamp;
-        } else if (Number.isFinite(totalTime)) {
-          startTimestamp = nowSecs - totalTime;
-        }
-      }
-
-      const duration = totalTime || slicerTime || elapsed || null;
-      const endTimestamp = startTimestamp && duration ? startTimestamp + duration : null;
-
-      const job = {
-        printerId,
-        printerName: printer.name,
-        state,
-        filename,
-        material,
-        elapsed,
-        totalTime,
-        slicerTime,
-        startTimestamp,
-        endTimestamp,
-        progress: Number.isFinite(progress) ? progress : null,
-      };
-
-      jobs.push(job);
-
-      timelinePrinter.isOnline = true;
-      timelinePrinter.state = (state || "standby").toLowerCase();
-      timelinePrinter.job = job;
-      timelinePrinter.jobs = [job];
-    } catch (error) {
-      timelinePrinter.isOnline = false;
-      timelinePrinter.state = "offline";
-      timelinePrinter.job = null;
-      timelinePrinter.jobs = [];
-      console.error("Erro ao coletar job da impressora", printer.name, error);
     }
+
+    const progressFromStats =
+      typeof printStats.progress === "number" ? printStats.progress : null;
+    const displayProgress =
+      typeof displayStatus.progress === "number"
+        ? displayStatus.progress
+        : Number(displayStatus.progress);
+
+    let progress = null;
+    if (Number.isFinite(progressFromStats)) {
+      progress = progressFromStats;
+    } else if (Number.isFinite(displayProgress)) {
+      progress = displayProgress;
+    } else if (totalTime && elapsed >= 0) {
+      progress = Math.min(elapsed / totalTime, 1);
+    }
+
+    const jobKey = `${printerId}::${filename || "sem_nome"}`;
+    const lowerState = (state || "").toLowerCase();
+
+    let trackingUpdated = false;
+    let startTimestamp = null;
+    if (lowerState === "printing") {
+      if (jobTracking[jobKey]?.startTimestamp) {
+        startTimestamp = jobTracking[jobKey].startTimestamp;
+      } else {
+        startTimestamp = nowSecs - elapsed;
+        jobTracking[jobKey] = { startTimestamp };
+        trackingUpdated = true;
+      }
+    } else if (lowerState === "complete" || lowerState === "completed") {
+      if (jobTracking[jobKey]?.startTimestamp) {
+        startTimestamp = jobTracking[jobKey].startTimestamp;
+      } else if (Number.isFinite(totalTime)) {
+        startTimestamp = nowSecs - totalTime;
+      }
+    }
+
+    const duration = totalTime || slicerTime || elapsed || null;
+    const endTimestamp = startTimestamp && duration ? startTimestamp + duration : null;
+
+    const job = {
+      printerId,
+      printerName: printer.name,
+      state,
+      filename,
+      material,
+      elapsed,
+      totalTime,
+      slicerTime,
+      startTimestamp,
+      endTimestamp,
+      progress: Number.isFinite(progress) ? progress : null,
+    };
+
+    timelinePrinter.isOnline = true;
+    timelinePrinter.state = (state || "standby").toLowerCase();
+    timelinePrinter.job = job;
+    timelinePrinter.jobs = job ? [job] : [];
+
+    return { printer, data: timelinePrinter, error: null, trackingUpdated };
+  } catch (error) {
+    console.error("Erro ao coletar job da impressora", printer.name, error);
+    timelinePrinter.isOnline = false;
+    timelinePrinter.state = "offline";
+    timelinePrinter.job = null;
+    timelinePrinter.jobs = [];
+    return { printer, data: timelinePrinter, error, trackingUpdated: false };
   }
+}
+
+async function coletarJobsDasImpressoras() {
+  const storedPrinters = loadPrinters();
+  const jobTracking = loadJobTracking();
+  const nowSecs = Date.now() / 1000;
+  let trackingUpdated = false;
+
+  const results = await Promise.all(
+    storedPrinters.map((printer, index) =>
+      fetchTimelineDataForPrinter(printer, index, jobTracking, nowSecs)
+    )
+  );
+
+  const jobs = [];
+  const timelinePrinters = [];
+
+  results.forEach((result) => {
+    if (result?.trackingUpdated) {
+      trackingUpdated = true;
+    }
+    if (result?.data) {
+      timelinePrinters.push(result.data);
+      if (result.data.job) {
+        jobs.push(result.data.job);
+      }
+    }
+  });
 
   if (trackingUpdated) {
     saveJobTracking(jobTracking);
@@ -717,16 +737,6 @@ function renderPrinters() {
     .join("");
 }
 
-function buildTimelinePrintersFromStorage() {
-  return loadPrinters().map((printer, index) => ({
-    id: resolvePrinterId(printer, index),
-    name: printer.name || resolvePrinterId(printer, index),
-    state: (printer.status || "standby").toLowerCase(),
-    job: null,
-    jobs: [],
-  }));
-}
-
 function renderMaterials() {
   const tbody = document.querySelector("[data-material-rows]");
   if (tbody) {
@@ -768,131 +778,153 @@ function renderMaterials() {
   }
 }
 
-function renderTimeline(timelinePrinters = []) {
-  const printersContainer = document.getElementById("timeline-printer-list");
-  const tracksContainer = document.getElementById("timeline-tracks");
-  if (!printersContainer || !tracksContainer) return;
-
-  printersContainer.innerHTML = "";
-  tracksContainer.innerHTML = "";
-
-  const secondsRange = 24 * 3600;
-
+function updateTimelineNowPosition() {
   const nowElement = document.querySelector(".timeline-now");
-  if (nowElement) {
-    const calcularPosicaoNow = () => {
-      const now = new Date();
-      let secNow = now.getHours() * 3600 + now.getMinutes() * 60;
-      if (secNow < 0) secNow = 0;
-      if (secNow > secondsRange) secNow = secondsRange;
-      return (secNow / secondsRange) * 100;
-    };
+  const rowsContainer = document.getElementById("timeline-rows");
+  const timelineCard = document.querySelector(".timeline-card");
+  if (!nowElement || !rowsContainer || !timelineCard) return;
 
-    nowElement.style.left = `${calcularPosicaoNow()}%`;
-    nowElement.style.transform = "translateX(-50%)";
-  }
+  const now = new Date();
+  let secNow = now.getHours() * 3600 + now.getMinutes() * 60;
+  secNow = Math.max(0, Math.min(TIMELINE_SECONDS_RANGE, secNow));
+  const leftPercent = (secNow / TIMELINE_SECONDS_RANGE) * 100;
 
-  timelinePrinters.forEach((printer) => {
-    const name = printer.name || printer.id;
+  nowElement.style.left = `${leftPercent}%`;
+  nowElement.style.transform = "translateX(-50%)";
+
+  const topOffset = rowsContainer.offsetTop;
+  const bottomOffset =
+    timelineCard.offsetHeight - (rowsContainer.offsetTop + rowsContainer.offsetHeight);
+  nowElement.style.top = `${topOffset}px`;
+  nowElement.style.bottom = `${Math.max(24, bottomOffset)}px`;
+}
+
+function renderTimelineSkeleton() {
+  const rowsContainer = document.getElementById("timeline-rows");
+  if (!rowsContainer) return;
+
+  const printerList = loadPrinters();
+  rowsContainer.innerHTML = "";
+
+  printerList.forEach((printer, index) => {
+    const row = document.createElement("div");
+    row.className = "timeline-row";
+    row.dataset.printerId = resolvePrinterId(printer, index);
+
     const printerItem = document.createElement("div");
     printerItem.className = "timeline-printer-item";
 
-    const nameEl = document.createElement("div");
-    nameEl.className = "timeline-printer-name";
-    nameEl.textContent = name;
+    const nameEl = document.createElement("span");
+    nameEl.textContent = printer.name || row.dataset.printerId;
 
-    const stateText = printer.state || printer.status || "standby";
-    const badge = createStatusBadgeElement(stateText);
+    const badge = document.createElement("span");
+    badge.className = "status-badge";
+    badge.textContent = "Carregando...";
 
     printerItem.append(nameEl, badge);
-    printersContainer.appendChild(printerItem);
 
     const track = document.createElement("div");
     track.className = "timeline-track";
 
-    const jobsToRender = Array.isArray(printer.jobs)
-      ? printer.jobs
-      : printer.job
-      ? [printer.job]
-      : [];
+    row.append(printerItem, track);
+    rowsContainer.appendChild(row);
+  });
 
-    jobsToRender.forEach((job) => {
-      if (!job.startTimestamp || !job.endTimestamp) return;
+  updateTimelineNowPosition();
+}
 
-      const startDate = new Date(job.startTimestamp * 1000);
-      const startSeconds = startDate.getHours() * 3600 + startDate.getMinutes() * 60;
+function createTimelineJobElement(job) {
+  if (!job?.startTimestamp || !job?.endTimestamp) return null;
 
-      if (startSeconds < 0 || startSeconds > secondsRange) return;
+  const startDate = new Date(job.startTimestamp * 1000);
+  const startSeconds = startDate.getHours() * 3600 + startDate.getMinutes() * 60;
+  if (startSeconds < 0 || startSeconds > TIMELINE_SECONDS_RANGE) return null;
 
-      const durationSeconds = job.endTimestamp - job.startTimestamp;
-      const leftPercent = (startSeconds / secondsRange) * 100;
-      const widthPercent = Math.max((durationSeconds / secondsRange) * 100, 5);
+  const durationSeconds = job.endTimestamp - job.startTimestamp;
+  const leftPercent = (startSeconds / TIMELINE_SECONDS_RANGE) * 100;
+  const rawWidth = (durationSeconds / TIMELINE_SECONDS_RANGE) * 100;
+  const widthPercent = Math.min(100 - leftPercent, Math.max(rawWidth, 3));
 
-      const jobBlock = document.createElement("div");
-      jobBlock.className = "timeline-job-block";
-      jobBlock.style.left = leftPercent + "%";
-      jobBlock.style.width = widthPercent + "%";
+  const jobEl = document.createElement("div");
+  jobEl.className = "timeline-job";
+  jobEl.style.left = `${leftPercent}%`;
+  jobEl.style.width = `${widthPercent}%`;
+  jobEl.textContent = job.filename || "Job atual";
+  const label = job.startTimestamp && job.endTimestamp
+    ? `${formatHour(job.startTimestamp)} - ${formatHour(job.endTimestamp)}`
+    : "Horário não definido";
+  jobEl.title = `${job.filename || "Job"} • ${label}`;
 
-      const progressFill = document.createElement("div");
-      progressFill.className = "timeline-job-fill";
+  return jobEl;
+}
 
-      let fillPercent = 0;
-      if (job.state && job.state.toLowerCase() === "printing") {
-        if (typeof job.progress === "number") {
-          fillPercent = Math.max(0, Math.min(job.progress, 1)) * 100;
-        } else if (job.totalTime && job.elapsed >= 0) {
-          fillPercent = Math.max(0, Math.min(job.elapsed / job.totalTime, 1)) * 100;
-        }
-      } else if (
-        job.state &&
-        ["complete", "completed"].includes(job.state.toLowerCase())
-      ) {
-        fillPercent = 100;
-      }
+function updateTimelineRow(printer, data, error) {
+  if (!data) return;
+  const rowId = data.id || resolvePrinterId(printer);
+  const row = document.querySelector(`.timeline-row[data-printer-id="${rowId}"]`);
+  if (!row) return;
 
-      progressFill.style.width = fillPercent.toFixed(1) + "%";
+  const badge = row.querySelector(".status-badge");
+  const track = row.querySelector(".timeline-track");
+  const nameEl = row.querySelector(".timeline-printer-item span");
+  if (!track) return;
 
-      const content = document.createElement("div");
-      content.className = "timeline-job-content";
-      content.innerHTML = `
-        <div class="timeline-job-title">
-          ${job.filename || "Job atual"}
-        </div>
-        <div class="timeline-job-subtitle">
-          ${(job.material || "Material desconhecido")} · ${
-            job.startTimestamp && job.endTimestamp
-              ? formatHour(job.startTimestamp) + " - " + formatHour(job.endTimestamp)
-              : "Horário não definido"
-          }
-        </div>
-      `;
+  if (nameEl) {
+    nameEl.textContent = printer.name || data.name || rowId;
+  }
 
-      jobBlock.appendChild(progressFill);
-      jobBlock.appendChild(content);
-      track.appendChild(jobBlock);
-    });
+  const statusText = error
+    ? "Offline"
+    : data.state || printer.status || "standby";
+  applyStatusBadgeClasses(badge, statusText);
 
-    tracksContainer.appendChild(track);
+  track.innerHTML = "";
+  const jobsToRender = Array.isArray(data.jobs)
+    ? data.jobs
+    : data.job
+    ? [data.job]
+    : [];
+
+  jobsToRender.forEach((job) => {
+    const jobEl = createTimelineJobElement(job);
+    if (jobEl) {
+      track.appendChild(jobEl);
+    }
   });
 }
 
-async function refreshTimeline() {
-  const skeletonPrinters = buildTimelinePrintersFromStorage();
-  if (skeletonPrinters.length) {
-    renderTimeline(skeletonPrinters);
+async function refreshTimelineData() {
+  const rowsContainer = document.getElementById("timeline-rows");
+  if (!rowsContainer) return;
+
+  const printerList = loadPrinters();
+  if (rowsContainer.childElementCount !== printerList.length) {
+    renderTimelineSkeleton();
   }
 
-  try {
-    const { timelinePrinters } = await coletarJobsDasImpressoras();
-    if (Array.isArray(timelinePrinters) && timelinePrinters.length) {
-      renderTimeline(timelinePrinters);
-      return timelinePrinters;
+  const jobTracking = loadJobTracking();
+  const nowSecs = Date.now() / 1000;
+  let trackingUpdated = false;
+
+  const results = await Promise.all(
+    printerList.map((printer, index) =>
+      fetchTimelineDataForPrinter(printer, index, jobTracking, nowSecs)
+    )
+  );
+
+  results.forEach((result) => {
+    if (!result) return;
+    if (result.trackingUpdated) {
+      trackingUpdated = true;
     }
-  } catch (error) {
-    console.error("Erro ao atualizar a timeline", error);
+    updateTimelineRow(result.printer, result.data, result.error);
+  });
+
+  if (trackingUpdated) {
+    saveJobTracking(jobTracking);
   }
 
-  return skeletonPrinters;
+  updateTimelineNowPosition();
 }
 
 function renderOverview() {
@@ -947,8 +979,7 @@ function renderStats() {
 }
 
 async function atualizarTimelineEPrints() {
-  const { jobs, timelinePrinters } = await coletarJobsDasImpressoras();
-  renderTimeline(timelinePrinters);
+  const { jobs } = await coletarJobsDasImpressoras();
   renderPrints(jobs);
 }
 
@@ -965,25 +996,26 @@ function iniciarAtualizacaoTimelineEPrints() {
 }
 
 function initTimelinePage() {
-  const timelineTracks = document.getElementById("timeline-tracks");
-  if (!timelineTracks) return;
+  const rowsContainer = document.getElementById("timeline-rows");
+  if (!rowsContainer) return;
 
-  const triggerRefresh = () => {
-    refreshTimeline().catch((error) =>
-      console.error("Erro ao atualizar dados da timeline", error)
-    );
+  renderTimelineSkeleton();
+
+  const startRefresh = async () => {
+    try {
+      await refreshTimelineData();
+    } catch (error) {
+      console.error("Erro ao atualizar dados da timeline", error);
+    }
   };
 
-  triggerRefresh();
+  startRefresh();
 
   if (timelineRefreshIntervalId) {
     clearInterval(timelineRefreshIntervalId);
   }
 
-  timelineRefreshIntervalId = setInterval(
-    triggerRefresh,
-    TIMELINE_REFRESH_MS
-  );
+  timelineRefreshIntervalId = setInterval(startRefresh, TIMELINE_REFRESH_MS);
 }
 
 function bindForm() {
@@ -1013,13 +1045,15 @@ function init() {
     iniciarAtualizacaoAutomatica();
   }
 
-  const timelineTracks = document.getElementById("timeline-tracks");
+  const timelineRows = document.getElementById("timeline-rows");
   const printsTable = document.getElementById("prints-table-body");
   if (printsTable) {
     iniciarAtualizacaoTimelineEPrints();
-  } else if (timelineTracks) {
+  } else if (timelineRows) {
     initTimelinePage();
   }
 }
+
+window.addEventListener("resize", updateTimelineNowPosition);
 
 document.addEventListener("DOMContentLoaded", init);
