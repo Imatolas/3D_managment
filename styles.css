@@ -621,7 +621,7 @@ img {
 /* Timeline */
 .timeline-layout {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: auto 1fr;
   gap: 24px;
   margin-top: 24px;
   align-items: flex-start;
@@ -630,12 +630,12 @@ img {
 .timeline-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 40px;
+  gap: var(--timeline-row-gap);
+  padding-top: 48px;
 }
 
 .timeline-printer-item {
-  min-height: 76px;
+  min-height: var(--timeline-row-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -676,7 +676,7 @@ img {
 .timeline-tracks {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--timeline-row-gap);
   position: relative;
 }
 
@@ -709,7 +709,7 @@ img {
 
 .timeline-track {
   position: relative;
-  height: 76px;
+  height: var(--timeline-row-height);
   border-radius: 14px;
   background: #f3f4ff;
   border: 1px dashed rgba(148, 163, 184, 0.45);

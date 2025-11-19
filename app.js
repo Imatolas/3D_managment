@@ -1,6 +1,7 @@
 const STORAGE_KEY_PRINTERS = "pm_printers";
 const PRINTERS_STORAGE_KEY = "moonrakerPrinters";
 const STORAGE_KEY_JOB_TRACKING = "pm_job_tracking";
+const TIMELINE_REFRESH_MS = 60000;
 
 const defaultPrinters = [
   { name: "Bambu X1", type: "CoreXY", status: "Printing", job: "Drone Arm", progress: 62, url: "" },
@@ -12,6 +13,7 @@ const defaultPrinters = [
 ];
 
 let printers = [];
+let timelineRefreshIntervalId = null;
 
 function loadJobTracking() {
   try {
@@ -780,7 +782,7 @@ function renderTimeline(timelinePrinters = []) {
     nowElement.style.transform = "translateX(-50%)";
   }
 
-  const dataToRender = timelinePrinters.length
+  const printersToDisplay = Array.isArray(timelinePrinters) && timelinePrinters.length
     ? timelinePrinters
     : loadPrinters().map((printer, index) => ({
         id: resolvePrinterId(printer, index),
@@ -790,15 +792,16 @@ function renderTimeline(timelinePrinters = []) {
         jobs: [],
       }));
 
-  dataToRender.forEach((printer) => {
+  printersToDisplay.forEach((printer) => {
     const name = printer.name || printer.id;
     const printerItem = document.createElement("div");
     printerItem.className = "timeline-printer-item";
+
     const nameEl = document.createElement("div");
     nameEl.className = "timeline-printer-name";
     nameEl.textContent = name;
 
-    const stateText = (printer.state || printer.status || "standby").toLowerCase();
+    const stateText = printer.state || printer.status || "standby";
     const badge = createStatusBadgeElement(stateText);
 
     printerItem.append(nameEl, badge);
@@ -924,15 +927,22 @@ function renderStats() {
   }
 }
 
+async function atualizarTimelineEPrints() {
+  const { jobs, timelinePrinters } = await coletarJobsDasImpressoras();
+  renderTimeline(timelinePrinters);
+  renderPrints(jobs);
+}
+
 function iniciarAtualizacaoTimelineEPrints() {
-  async function atualizar() {
-    const { jobs, timelinePrinters } = await coletarJobsDasImpressoras();
-    renderTimeline(timelinePrinters);
-    renderPrints(jobs);
+  if (timelineRefreshIntervalId) {
+    clearInterval(timelineRefreshIntervalId);
   }
 
-  atualizar();
-  setInterval(atualizar, 10000);
+  atualizarTimelineEPrints();
+  timelineRefreshIntervalId = setInterval(
+    atualizarTimelineEPrints,
+    TIMELINE_REFRESH_MS
+  );
 }
 
 function bindForm() {
