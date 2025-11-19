@@ -624,19 +624,19 @@ img {
 .timeline-sidebar {
   display: flex;
   flex-direction: column;
-  gap: var(--timeline-row-gap);
+  gap: 12px;
+  padding-top: 40px;
 }
 
 .timeline-printer-item {
+  min-height: 76px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: var(--timeline-row-height);
   padding: 12px 16px;
-  background: #f8fafc;
-  border: 1px solid #eef1f8;
   border-radius: 14px;
-  box-shadow: var(--shadow);
+  background: #ffffff;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
   font-weight: 600;
 }
 
@@ -670,7 +670,7 @@ img {
 .timeline-tracks {
   display: flex;
   flex-direction: column;
-  gap: var(--timeline-row-gap);
+  gap: 12px;
   position: relative;
 }
 
@@ -703,7 +703,7 @@ img {
 
 .timeline-track {
   position: relative;
-  height: var(--timeline-row-height);
+  height: 76px;
   border-radius: 14px;
   background: #f3f4ff;
   border: 1px dashed rgba(148, 163, 184, 0.45);
