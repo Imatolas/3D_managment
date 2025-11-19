@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #0f172a;
+}
+
+.card {
+  @apply bg-white rounded-xl shadow p-4;
+}
+
+.badge {
+  @apply px-3 py-1 rounded-full text-sm font-semibold;
+}
+
+.status-printing { @apply bg-emerald-100 text-emerald-700; }
+.status-standby { @apply bg-amber-100 text-amber-700; }
+.status-offline { @apply bg-slate-200 text-slate-600; }
+.status-complete { @apply bg-blue-100 text-blue-700; }
+.status-canceled { @apply bg-rose-100 text-rose-700; }
