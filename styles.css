@@ -17,6 +17,7 @@
   --radius-sm: 10px;
   --timeline-row-gap: 12px;
   --timeline-row-height: 76px;
+  --timeline-sidebar-offset: 48px;
 }
 
 * {
@@ -619,11 +620,11 @@ img {
 }
 
 /* Timeline */
+
 .timeline-layout {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 24px;
-  margin-top: 24px;
   align-items: flex-start;
 }
 
@@ -631,7 +632,7 @@ img {
   display: flex;
   flex-direction: column;
   gap: var(--timeline-row-gap);
-  padding-top: 48px;
+  padding-top: var(--timeline-sidebar-offset);
 }
 
 .timeline-printer-item {
@@ -677,7 +678,6 @@ img {
   display: flex;
   flex-direction: column;
   gap: var(--timeline-row-gap);
-  position: relative;
 }
 
 .timeline-now {

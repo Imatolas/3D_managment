@@ -717,6 +717,16 @@ function renderPrinters() {
     .join("");
 }
 
+function buildTimelinePrintersFromStorage() {
+  return loadPrinters().map((printer, index) => ({
+    id: resolvePrinterId(printer, index),
+    name: printer.name || resolvePrinterId(printer, index),
+    state: (printer.status || "standby").toLowerCase(),
+    job: null,
+    jobs: [],
+  }));
+}
+
 function renderMaterials() {
   const tbody = document.querySelector("[data-material-rows]");
   if (tbody) {
@@ -782,17 +792,7 @@ function renderTimeline(timelinePrinters = []) {
     nowElement.style.transform = "translateX(-50%)";
   }
 
-  const printersToDisplay = Array.isArray(timelinePrinters) && timelinePrinters.length
-    ? timelinePrinters
-    : loadPrinters().map((printer, index) => ({
-        id: resolvePrinterId(printer, index),
-        name: printer.name || resolvePrinterId(printer, index),
-        state: (printer.status || "standby").toLowerCase(),
-        job: null,
-        jobs: [],
-      }));
-
-  printersToDisplay.forEach((printer) => {
+  timelinePrinters.forEach((printer) => {
     const name = printer.name || printer.id;
     const printerItem = document.createElement("div");
     printerItem.className = "timeline-printer-item";
@@ -876,6 +876,25 @@ function renderTimeline(timelinePrinters = []) {
   });
 }
 
+async function refreshTimeline() {
+  const skeletonPrinters = buildTimelinePrintersFromStorage();
+  if (skeletonPrinters.length) {
+    renderTimeline(skeletonPrinters);
+  }
+
+  try {
+    const { timelinePrinters } = await coletarJobsDasImpressoras();
+    if (Array.isArray(timelinePrinters) && timelinePrinters.length) {
+      renderTimeline(timelinePrinters);
+      return timelinePrinters;
+    }
+  } catch (error) {
+    console.error("Erro ao atualizar a timeline", error);
+  }
+
+  return skeletonPrinters;
+}
+
 function renderOverview() {
   const activePrinters = printers.filter((p) => p.status !== "Offline");
   const overviewActive = document.querySelector("[data-overview-active]");
@@ -945,6 +964,28 @@ function iniciarAtualizacaoTimelineEPrints() {
   );
 }
 
+function initTimelinePage() {
+  const timelineTracks = document.getElementById("timeline-tracks");
+  if (!timelineTracks) return;
+
+  const triggerRefresh = () => {
+    refreshTimeline().catch((error) =>
+      console.error("Erro ao atualizar dados da timeline", error)
+    );
+  };
+
+  triggerRefresh();
+
+  if (timelineRefreshIntervalId) {
+    clearInterval(timelineRefreshIntervalId);
+  }
+
+  timelineRefreshIntervalId = setInterval(
+    triggerRefresh,
+    TIMELINE_REFRESH_MS
+  );
+}
+
 function bindForm() {
   const form = document.getElementById("printer-form");
   if (!form) return;
@@ -974,8 +1015,10 @@ function init() {
 
   const timelineTracks = document.getElementById("timeline-tracks");
   const printsTable = document.getElementById("prints-table-body");
-  if (timelineTracks || printsTable) {
+  if (printsTable) {
     iniciarAtualizacaoTimelineEPrints();
+  } else if (timelineTracks) {
+    initTimelinePage();
   }
 }
 
